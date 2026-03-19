@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "994016422490",
+    "project_id": "restaurandes",
+    "storage_bucket": "restaurandes.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:994016422490:android:b4de8525a10550f03ec663",
+        "android_client_info": {
+          "package_name": "com.example.foodandes_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyALLe_Dqc5iQX5ULfh4wBesoAmcq1VuadI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:994016422490:android:8a07eb8c51737fb73ec663",
+        "android_client_info": {
+          "package_name": "com.restaurandes"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyALLe_Dqc5iQX5ULfh4wBesoAmcq1VuadI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

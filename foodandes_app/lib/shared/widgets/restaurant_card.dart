@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:foodandes_app/core/constants/app_colors.dart';
-import 'package:foodandes_app/core/utils/helpers.dart';
 import 'package:foodandes_app/models/restaurant.dart';
 import 'package:foodandes_app/shared/widgets/open_badge.dart';
 
@@ -34,8 +33,14 @@ class RestaurantCard extends StatelessWidget {
                 AspectRatio(
                   aspectRatio: 16 / 10,
                   child: Image.network(
-                    restaurant.imageUrl,
+                    restaurant.imageURL,
                     fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      color: Colors.grey.shade300,
+                      child: const Center(
+                        child: Icon(Icons.image_not_supported, size: 40),
+                      ),
+                    ),
                   ),
                 ),
                 if (showFavoriteIcon)
@@ -73,7 +78,7 @@ class RestaurantCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    '${restaurant.category}  •  ⭐ ${restaurant.rating}  •  ${formatPriceLevel(restaurant.priceLevel)}',
+                    '${restaurant.category}  •  ⭐ ${restaurant.rating}  •  ${restaurant.priceRange}',
                     style: const TextStyle(
                       fontSize: 14,
                       color: AppColors.textSecondary,
