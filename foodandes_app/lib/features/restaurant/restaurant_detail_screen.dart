@@ -5,6 +5,7 @@ import 'package:foodandes_app/models/restaurant.dart';
 import 'package:foodandes_app/shared/widgets/open_badge.dart';
 import 'package:foodandes_app/features/restaurant/reviews_screen.dart';
 import 'package:foodandes_app/core/utils/map_launcher_helper.dart';
+import 'package:foodandes_app/features/restaurant/compare_restaurants_screen.dart';
 
 class RestaurantDetailScreen extends StatefulWidget {
   static const String routeName = '/restaurant-detail';
@@ -295,12 +296,18 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: OutlinedButton.icon(
-                            onPressed: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Compare feature coming soon'),
-                                ),
+                            onPressed: () async {
+                              await Navigator.pushNamed(
+                                context,
+                                CompareRestaurantsScreen.routeName,
+                                arguments: restaurant.id,
                               );
+
+                              if (!context.mounted) return;
+
+                              setState(() {
+                                _loadRestaurant();
+                              });
                             },
                             icon: const Icon(
                               Icons.compare_arrows,

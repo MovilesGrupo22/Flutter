@@ -43,11 +43,12 @@ class HomeFilteredScreen extends StatelessWidget {
               child: RestaurantCard(
                 restaurant: restaurant,
                 onTap: () {
-                  Navigator.pushNamed(
-                    context,
-                    RestaurantDetailScreen.routeName,
-                  );
-                },
+                Navigator.pushNamed(
+                  context,
+                  RestaurantDetailScreen.routeName,
+                  arguments: restaurant.id,
+                );
+              },
               ),
             ),
           ),
