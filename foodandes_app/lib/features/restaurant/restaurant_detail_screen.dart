@@ -4,6 +4,7 @@ import 'package:foodandes_app/data/repositories/restaurant_repository.dart';
 import 'package:foodandes_app/models/restaurant.dart';
 import 'package:foodandes_app/shared/widgets/open_badge.dart';
 import 'package:foodandes_app/features/restaurant/reviews_screen.dart';
+import 'package:foodandes_app/core/utils/map_launcher_helper.dart';
 
 class RestaurantDetailScreen extends StatefulWidget {
   static const String routeName = '/restaurant-detail';
@@ -227,6 +228,33 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                           style: const TextStyle(fontSize: 16),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: () async {
+                          try {
+                            await MapLauncherHelper.openDirections(
+                              latitude: restaurant.latitude,
+                              longitude: restaurant.longitude,
+                            );
+                          } catch (_) {
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Could not open Google Maps'),
+                              ),
+                            );
+                          }
+                        },
+                        icon: const Icon(Icons.near_me),
+                        label: const Text('Get Directions'),
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size.fromHeight(52),
+                          backgroundColor: AppColors.primary,
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 24),
                     Row(
