@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:foodandes_app/core/constants/app_colors.dart';
 import 'package:foodandes_app/core/utils/map_launcher_helper.dart';
-import 'package:foodandes_app/data/dummy/dummy_restaurants.dart';
 import 'package:foodandes_app/data/repositories/restaurant_repository.dart';
 import 'package:foodandes_app/features/restaurant/compare_restaurants_screen.dart';
 import 'package:foodandes_app/features/restaurant/reviews_screen.dart';
@@ -23,29 +22,8 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
   String? _restaurantId;
   Future<Restaurant?>? _restaurantFuture;
 
-  Restaurant? _findDummyRestaurantById(String? id) {
-    if (id == null) return null;
-
-    for (final restaurant in dummyRestaurants) {
-      if (restaurant.id == id) return restaurant;
-    }
-
-    return null;
-  }
-
   Future<Restaurant?> _fetchRestaurant(String restaurantId) async {
-    try {
-      final restaurantFromBackend =
-          await _repository.fetchRestaurantById(restaurantId);
-
-      if (restaurantFromBackend != null) {
-        return restaurantFromBackend;
-      }
-
-      return _findDummyRestaurantById(restaurantId);
-    } catch (_) {
-      return _findDummyRestaurantById(restaurantId);
-    }
+    return _repository.fetchRestaurantById(restaurantId);
   }
 
   @override
