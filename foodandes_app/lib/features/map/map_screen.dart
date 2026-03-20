@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:foodandes_app/core/constants/app_colors.dart';
-import 'package:foodandes_app/data/dummy/dummy_restaurants.dart';
+import 'package:foodandes_app/data/repositories/restaurant_repository.dart';
 import 'package:foodandes_app/features/restaurant/restaurant_detail_screen.dart';
 import 'package:foodandes_app/models/restaurant.dart';
 import 'package:foodandes_app/shared/widgets/custom_bottom_navbar.dart';
@@ -17,13 +17,46 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> {
+  final RestaurantRepository _repository = RestaurantRepository();
   final LatLng _initialPosition = const LatLng(4.6026, -74.0652);
 
   GoogleMapController? _mapController;
   Restaurant? _selectedRestaurant;
 
-  List<Restaurant> get _restaurants =>
-      dummyRestaurants.where(_hasValidCoordinates).toList();
+  bool _isLoading = true;
+  String? _error;
+  List<Restaurant> _restaurants = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRestaurants();
+  }
+
+  Future<void> _loadRestaurants() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final restaurants = await _repository.fetchRestaurants();
+
+      if (!mounted) return;
+
+      setState(() {
+        _restaurants = restaurants.where(_hasValidCoordinates).toList();
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _error = 'Error loading restaurants: $e';
+        _isLoading = false;
+      });
+    }
+  }
 
   bool _hasValidCoordinates(Restaurant restaurant) {
     final lat = restaurant.latitude;
@@ -79,57 +112,61 @@ class _MapScreenState extends State<MapScreen> {
         title: const Text('Map'),
       ),
       bottomNavigationBar: const CustomBottomNavbar(currentIndex: 1),
-      body: _restaurants.isEmpty
-          ? const Center(
-              child: Text('No restaurants available on the map'),
-            )
-          : Stack(
-              children: [
-                Positioned.fill(
-                  child: GoogleMap(
-                    initialCameraPosition: CameraPosition(
-                      target: _initialPosition,
-                      zoom: 16,
-                    ),
-                    zoomControlsEnabled: false,
-                    myLocationButtonEnabled: false,
-                    mapToolbarEnabled: false,
-                    markers: _buildMarkers(),
-                    padding: EdgeInsets.only(
-                      bottom: selectedRestaurant != null ? 220 : 90,
-                    ),
-                    onMapCreated: (controller) {
-                      _mapController = controller;
-                    },
-                  ),
-                ),
-                if (selectedRestaurant != null)
-                  Positioned(
-                    left: 16,
-                    right: 16,
-                    bottom: 94,
-                    child: _MapRestaurantInfoCard(
-                      restaurant: selectedRestaurant,
-                      onClose: () {
-                        setState(() {
-                          _selectedRestaurant = null;
-                        });
-                      },
-                      onDetailsTap: () async {
-                        await Navigator.pushNamed(
-                          context,
-                          RestaurantDetailScreen.routeName,
-                          arguments: selectedRestaurant.id,
-                        );
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? Center(child: Text(_error!))
+              : _restaurants.isEmpty
+                  ? const Center(
+                      child: Text('No restaurants available on the map'),
+                    )
+                  : Stack(
+                      children: [
+                        Positioned.fill(
+                          child: GoogleMap(
+                            initialCameraPosition: CameraPosition(
+                              target: _initialPosition,
+                              zoom: 16,
+                            ),
+                            zoomControlsEnabled: false,
+                            myLocationButtonEnabled: false,
+                            mapToolbarEnabled: false,
+                            markers: _buildMarkers(),
+                            padding: EdgeInsets.only(
+                              bottom: selectedRestaurant != null ? 220 : 90,
+                            ),
+                            onMapCreated: (controller) {
+                              _mapController = controller;
+                            },
+                          ),
+                        ),
+                        if (selectedRestaurant != null)
+                          Positioned(
+                            left: 16,
+                            right: 16,
+                            bottom: 94,
+                            child: _MapRestaurantInfoCard(
+                              restaurant: selectedRestaurant,
+                              onClose: () {
+                                setState(() {
+                                  _selectedRestaurant = null;
+                                });
+                              },
+                              onDetailsTap: () async {
+                                await Navigator.pushNamed(
+                                  context,
+                                  RestaurantDetailScreen.routeName,
+                                  arguments: selectedRestaurant.id,
+                                );
 
-                        if (!mounted) return;
+                                if (!mounted) return;
 
-                        setState(() {});
-                      },
+                                await _loadRestaurants();
+                              },
+                            ),
+                          ),
+                      ],
                     ),
-                  ),
-              ],
-            ),
     );
   }
 }
