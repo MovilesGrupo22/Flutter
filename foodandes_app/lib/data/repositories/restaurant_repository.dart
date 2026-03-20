@@ -56,22 +56,61 @@ class RestaurantRepository {
 
   List<Restaurant> filterRestaurants({
     required List<Restaurant> restaurants,
-    required String query,
+    String query = '',
+    String selectedCategory = 'All',
+    bool onlyOpen = false,
+    bool onlyTopRated = false,
+    String selectedPriceRange = 'All',
   }) {
     final normalizedQuery = query.trim().toLowerCase();
 
-    if (normalizedQuery.isEmpty) return [];
-
     return restaurants.where((restaurant) {
-      final name = restaurant.name.toLowerCase();
-      final category = restaurant.category.toLowerCase();
-      final address = restaurant.address.toLowerCase();
-      final tags = restaurant.tags.map((tag) => tag.toLowerCase()).join(' ');
+      final matchesQuery = normalizedQuery.isEmpty ||
+          restaurant.name.toLowerCase().contains(normalizedQuery) ||
+          restaurant.category.toLowerCase().contains(normalizedQuery) ||
+          restaurant.address.toLowerCase().contains(normalizedQuery) ||
+          restaurant.tags.any(
+            (tag) => tag.toLowerCase().contains(normalizedQuery),
+          );
 
-      return name.contains(normalizedQuery) ||
-          category.contains(normalizedQuery) ||
-          address.contains(normalizedQuery) ||
-          tags.contains(normalizedQuery);
+      final matchesCategory = selectedCategory == 'All' ||
+          restaurant.category.toLowerCase() ==
+              selectedCategory.toLowerCase();
+
+      final matchesOpen = !onlyOpen || restaurant.isOpen;
+
+      final matchesTopRated = !onlyTopRated || restaurant.rating >= 4.5;
+
+      final matchesPrice = selectedPriceRange == 'All' ||
+          restaurant.priceRange == selectedPriceRange;
+
+      return matchesQuery &&
+          matchesCategory &&
+          matchesOpen &&
+          matchesTopRated &&
+          matchesPrice;
     }).toList();
+  }
+
+  List<String> extractCategories(List<Restaurant> restaurants) {
+    final categories = restaurants
+        .map((restaurant) => restaurant.category.trim())
+        .where((category) => category.isNotEmpty)
+        .toSet()
+        .toList();
+
+    categories.sort();
+    return ['All', ...categories];
+  }
+
+  List<String> extractPriceRanges(List<Restaurant> restaurants) {
+    final prices = restaurants
+        .map((restaurant) => restaurant.priceRange.trim())
+        .where((price) => price.isNotEmpty)
+        .toSet()
+        .toList();
+
+    prices.sort((a, b) => a.length.compareTo(b.length));
+    return ['All', ...prices];
   }
 }
