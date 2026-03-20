@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:foodandes_app/core/constants/app_colors.dart';
+import 'package:foodandes_app/core/utils/map_launcher_helper.dart';
+import 'package:foodandes_app/data/dummy/dummy_restaurants.dart';
 import 'package:foodandes_app/data/repositories/restaurant_repository.dart';
+import 'package:foodandes_app/features/restaurant/compare_restaurants_screen.dart';
+import 'package:foodandes_app/features/restaurant/reviews_screen.dart';
 import 'package:foodandes_app/models/restaurant.dart';
 import 'package:foodandes_app/shared/widgets/open_badge.dart';
-import 'package:foodandes_app/features/restaurant/reviews_screen.dart';
-import 'package:foodandes_app/core/utils/map_launcher_helper.dart';
-import 'package:foodandes_app/features/restaurant/compare_restaurants_screen.dart';
 
 class RestaurantDetailScreen extends StatefulWidget {
   static const String routeName = '/restaurant-detail';
@@ -19,12 +20,38 @@ class RestaurantDetailScreen extends StatefulWidget {
 class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
   final RestaurantRepository _repository = RestaurantRepository();
 
-  Future<Restaurant?>? _restaurantFuture;
   String? _restaurantId;
+  Future<Restaurant?>? _restaurantFuture;
+
+  Restaurant? _findDummyRestaurantById(String? id) {
+    if (id == null) return null;
+
+    for (final restaurant in dummyRestaurants) {
+      if (restaurant.id == id) return restaurant;
+    }
+
+    return null;
+  }
+
+  Future<Restaurant?> _fetchRestaurant(String restaurantId) async {
+    try {
+      final restaurantFromBackend =
+          await _repository.fetchRestaurantById(restaurantId);
+
+      if (restaurantFromBackend != null) {
+        return restaurantFromBackend;
+      }
+
+      return _findDummyRestaurantById(restaurantId);
+    } catch (_) {
+      return _findDummyRestaurantById(restaurantId);
+    }
+  }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+
     final restaurantId = ModalRoute.of(context)?.settings.arguments as String?;
 
     if (restaurantId != null && restaurantId != _restaurantId) {
@@ -35,14 +62,23 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
 
   void _loadRestaurant() {
     if (_restaurantId != null) {
-      _restaurantFuture = _repository.fetchRestaurantById(_restaurantId!);
+      _restaurantFuture = _fetchRestaurant(_restaurantId!);
     }
   }
 
   Future<void> _toggleFavorite() async {
     if (_restaurantId == null) return;
 
-    await _repository.toggleFavorite(_restaurantId!);
+    try {
+      await _repository.toggleFavorite(_restaurantId!);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not update favorites'),
+        ),
+      );
+    }
 
     setState(() {
       _loadRestaurant();
@@ -53,13 +89,15 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Detalles'),
+        title: const Text('Details'),
       ),
       body: FutureBuilder<Restaurant?>(
         future: _restaurantFuture,
         builder: (context, snapshot) {
           if (_restaurantFuture == null) {
-            return const Center(child: Text('No restaurant selected'));
+            return const Center(
+              child: Text('No restaurant selected'),
+            );
           }
 
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -75,7 +113,9 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
           final restaurant = snapshot.data;
 
           if (restaurant == null) {
-            return const Center(child: Text('Restaurant not found'));
+            return const Center(
+              child: Text('Restaurant not found'),
+            );
           }
 
           return ListView(
@@ -149,7 +189,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                     const Divider(),
                     const SizedBox(height: 12),
                     const Text(
-                      'Descripción',
+                      'Description',
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w700,
@@ -165,7 +205,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                       const Divider(),
                       const SizedBox(height: 12),
                       const Text(
-                        'Características',
+                        'Features',
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.w700,
@@ -188,7 +228,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                     const Divider(),
                     const SizedBox(height: 12),
                     const Text(
-                      'Información de Contacto',
+                      'Contact Information',
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w700,
@@ -213,9 +253,11 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                       children: [
                         const Icon(Icons.phone, color: AppColors.primary),
                         const SizedBox(width: 10),
-                        Text(
-                          restaurant.phone,
-                          style: const TextStyle(fontSize: 16),
+                        Expanded(
+                          child: Text(
+                            restaurant.phone,
+                            style: const TextStyle(fontSize: 16),
+                          ),
                         ),
                       ],
                     ),
@@ -224,9 +266,11 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                       children: [
                         const Icon(Icons.access_time, color: AppColors.primary),
                         const SizedBox(width: 10),
-                        Text(
-                          restaurant.openingHours,
-                          style: const TextStyle(fontSize: 16),
+                        Expanded(
+                          child: Text(
+                            restaurant.openingHours,
+                            style: const TextStyle(fontSize: 16),
+                          ),
                         ),
                       ],
                     ),
@@ -262,20 +306,22 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                       children: [
                         Expanded(
                           child: OutlinedButton.icon(
-                          onPressed: () async {
-                            await Navigator.pushNamed(
-                              context,
-                              ReviewsScreen.routeName,
-                              arguments: {
-                                'restaurantId': restaurant.id,
-                                'restaurantName': restaurant.name,
-                              },
-                            );
+                            onPressed: () async {
+                              await Navigator.pushNamed(
+                                context,
+                                ReviewsScreen.routeName,
+                                arguments: {
+                                  'restaurantId': restaurant.id,
+                                  'restaurantName': restaurant.name,
+                                },
+                              );
 
-                            setState(() {
-                              _loadRestaurant();
-                            });
-                          },
+                              if (!mounted) return;
+
+                              setState(() {
+                                _loadRestaurant();
+                              });
+                            },
                             icon: const Icon(
                               Icons.rate_review,
                               color: AppColors.primary,
