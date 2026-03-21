@@ -6,6 +6,7 @@ import 'package:foodandes_app/features/restaurant/compare_restaurants_screen.dar
 import 'package:foodandes_app/features/restaurant/reviews_screen.dart';
 import 'package:foodandes_app/models/restaurant.dart';
 import 'package:foodandes_app/shared/widgets/open_badge.dart';
+import 'package:foodandes_app/data/services/analytics_service.dart';
 
 class RestaurantDetailScreen extends StatefulWidget {
   static const String routeName = '/restaurant-detail';
@@ -21,6 +22,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
 
   String? _restaurantId;
   Future<Restaurant?>? _restaurantFuture;
+  bool _hasLoggedRestaurantView = false;
 
   Future<Restaurant?> _fetchRestaurant(String restaurantId) async {
     return _repository.fetchRestaurantById(restaurantId);
@@ -32,10 +34,11 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
 
     final restaurantId = ModalRoute.of(context)?.settings.arguments as String?;
 
-    if (restaurantId != null && restaurantId != _restaurantId) {
-      _restaurantId = restaurantId;
-      _loadRestaurant();
-    }
+  if (restaurantId != null && restaurantId != _restaurantId) {
+    _restaurantId = restaurantId;
+    _hasLoggedRestaurantView = false;
+    _loadRestaurant();
+}
   }
 
   void _loadRestaurant() {
@@ -89,6 +92,18 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
           }
 
           final restaurant = snapshot.data;
+          
+          if (!_hasLoggedRestaurantView) {
+          _hasLoggedRestaurantView = true;
+          Future.microtask(() async {
+            await AnalyticsService.instance.logRestaurantView(
+              restaurantId: restaurant!.id,
+              restaurantName: restaurant.name,
+              category: restaurant.category,
+              priceRange: restaurant.priceRange,
+            );
+          });
+        }
 
           if (restaurant == null) {
             return const Center(

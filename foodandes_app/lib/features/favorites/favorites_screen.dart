@@ -5,6 +5,7 @@ import 'package:foodandes_app/features/restaurant/restaurant_detail_screen.dart'
 import 'package:foodandes_app/models/restaurant.dart';
 import 'package:foodandes_app/shared/widgets/custom_bottom_navbar.dart';
 import 'package:foodandes_app/shared/widgets/restaurant_card.dart';
+import 'package:foodandes_app/data/services/analytics_service.dart';
 
 class FavoritesScreen extends StatefulWidget {
   static const String routeName = '/favorites';
@@ -24,6 +25,10 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
   void initState() {
     super.initState();
     _loadFavorites();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AnalyticsService.instance.logSectionOpened('favorites');
+    });
   }
 
   void _loadFavorites() {

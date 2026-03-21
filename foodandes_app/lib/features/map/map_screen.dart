@@ -6,6 +6,7 @@ import 'package:foodandes_app/features/restaurant/restaurant_detail_screen.dart'
 import 'package:foodandes_app/models/restaurant.dart';
 import 'package:foodandes_app/shared/widgets/custom_bottom_navbar.dart';
 import 'package:foodandes_app/shared/widgets/open_badge.dart';
+import 'package:foodandes_app/data/services/analytics_service.dart';
 
 class MapScreen extends StatefulWidget {
   static const String routeName = '/map';
@@ -31,6 +32,10 @@ class _MapScreenState extends State<MapScreen> {
   void initState() {
     super.initState();
     _loadRestaurants();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AnalyticsService.instance.logSectionOpened('map');
+    });
   }
 
   Future<void> _loadRestaurants() async {

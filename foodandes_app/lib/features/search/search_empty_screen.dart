@@ -6,6 +6,7 @@ import 'package:foodandes_app/shared/widgets/custom_bottom_navbar.dart';
 import 'package:foodandes_app/shared/widgets/custom_search_bar.dart';
 import 'package:foodandes_app/shared/widgets/empty_state_widget.dart';
 import 'package:foodandes_app/shared/widgets/restaurant_card.dart';
+import 'package:foodandes_app/data/services/analytics_service.dart';
 
 class SearchEmptyScreen extends StatefulWidget {
   static const String routeName = '/search-empty';
@@ -30,6 +31,10 @@ class _SearchEmptyScreenState extends State<SearchEmptyScreen> {
   void initState() {
     super.initState();
     _loadRestaurants();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AnalyticsService.instance.logSectionOpened('search');
+    });
   }
 
   Future<void> _loadRestaurants() async {
