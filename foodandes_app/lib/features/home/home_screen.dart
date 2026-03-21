@@ -7,6 +7,7 @@ import 'package:foodandes_app/models/restaurant.dart';
 import 'package:foodandes_app/shared/widgets/category_chip.dart';
 import 'package:foodandes_app/shared/widgets/custom_bottom_navbar.dart';
 import 'package:foodandes_app/shared/widgets/restaurant_card.dart';
+import 'package:foodandes_app/data/services/analytics_service.dart';
 
 class HomeScreen extends StatefulWidget {
   static const String routeName = '/home';
@@ -34,7 +35,11 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadRestaurants();
-  }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AnalyticsService.instance.logSectionOpened('home');
+    });
+}
 
   void _loadRestaurants() {
     _restaurantsFuture = _repository.fetchRestaurants();
@@ -74,6 +79,15 @@ class _HomeScreenState extends State<HomeScreen> {
     await _refreshRestaurants();
   }
 
+  Future<void> _logFilter({
+    required String filterType,
+    required String filterValue,
+  }) async {
+    await AnalyticsService.instance.logFilterApplied(
+      filterType: filterType,
+      filterValue: filterValue,
+    );
+}
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -157,27 +171,40 @@ class _HomeScreenState extends State<HomeScreen> {
                         selected: !_onlyOpen &&
                             !_onlyTopRated &&
                             _selectedCategory == 'All',
-                        onTap: () {
+                        onTap: () async {
                           _selectedCategory = 'All';
                           _onlyOpen = false;
                           _onlyTopRated = false;
                           _applyFilters();
+
+                          await _logFilter(
+                            filterType: 'quick_chip',
+                            filterValue: 'All',
+                          );
                         },
                       ),
                       CategoryChip(
                         label: 'Open',
                         selected: _onlyOpen,
-                        onTap: () {
+                        onTap: () async {
                           _onlyOpen = !_onlyOpen;
                           _applyFilters();
+                          await _logFilter(
+                            filterType: 'quick_chip',
+                            filterValue: _onlyOpen ? 'Open' : 'Open_Off',
+                          );
                         },
                       ),
                       CategoryChip(
                         label: 'Top Rated',
                         selected: _onlyTopRated,
-                        onTap: () {
+                        onTap: () async{
                           _onlyTopRated = !_onlyTopRated;
                           _applyFilters();
+                          await _logFilter(
+                            filterType: 'quick_chip',
+                            filterValue: _onlyTopRated ? 'Top Rated' : 'Top Rated_Off',
+                          );
                         },
                       ),
                       ...categoryOptions
@@ -186,12 +213,16 @@ class _HomeScreenState extends State<HomeScreen> {
                             (category) => CategoryChip(
                               label: category,
                               selected: _selectedCategory == category,
-                              onTap: () {
+                              onTap: () async{
                                 _selectedCategory =
                                     _selectedCategory == category
                                         ? 'All'
                                         : category;
                                 _applyFilters();
+                                await _logFilter(
+                                  filterType: 'category',
+                                  filterValue: _selectedCategory,
+                                );
                               },
                             ),
                           ),
@@ -213,10 +244,15 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Text(price),
                     );
                   }).toList(),
-                  onChanged: (value) {
+                  onChanged: (value) async {
                     if (value == null) return;
                     _selectedPriceRange = value;
                     _applyFilters();
+
+                    await _logFilter(
+                      filterType: 'price_range',
+                      filterValue: value,
+                    );
                   },
                 ),
 

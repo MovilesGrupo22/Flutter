@@ -85,4 +85,5 @@ class DefaultFirebaseOptions {
     storageBucket: 'restaurandes.firebasestorage.app',
     measurementId: 'G-4Y650QS1LC',
   );
+
 }
