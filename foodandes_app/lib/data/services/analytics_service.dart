@@ -112,6 +112,7 @@ class AnalyticsService {
     required String restaurantId,
     required String restaurantName,
     String? userId,
+    String? source,
   }) async {
     await _analytics.logEvent(
       name: 'restaurant_view',
@@ -119,15 +120,18 @@ class AnalyticsService {
         'restaurant_id': restaurantId,
         'restaurant_name': restaurantName,
         if (userId != null) 'user_id': userId,
+        if (source != null) 'source': source,
         'timestamp': DateTime.now().millisecondsSinceEpoch,
       },
     );
   }
 
+
   Future<void> logRestaurantFavorited({
     required String restaurantId,
     required String restaurantName,
     required String userId,
+    String? favoriteSource,
   }) async {
     await _analytics.logEvent(
       name: 'restaurant_favorited',
@@ -135,6 +139,7 @@ class AnalyticsService {
         'restaurant_id': restaurantId,
         'restaurant_name': restaurantName,
         'user_id': userId,
+        if (favoriteSource != null) 'favorite_source': favoriteSource,
         'timestamp': DateTime.now().millisecondsSinceEpoch,
       },
     );
