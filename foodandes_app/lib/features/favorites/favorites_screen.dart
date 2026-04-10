@@ -53,6 +53,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
           restaurantId: restaurant.id,
           restaurantName: restaurant.name,
           userId: userId,
+          favoriteSource: 'favorites_screen',
         );
       } else {
         await AnalyticsService.instance.logRestaurantUnfavorited(

@@ -94,6 +94,7 @@ class _HomeScreenState extends State<HomeScreen> {
           restaurantId: restaurant.id,
           restaurantName: restaurant.name,
           userId: userId,
+          favoriteSource: 'home_screen',
         );
       } else {
         await AnalyticsService.instance.logRestaurantUnfavorited(

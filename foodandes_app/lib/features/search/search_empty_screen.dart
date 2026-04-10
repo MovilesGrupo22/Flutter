@@ -94,6 +94,7 @@ class _SearchEmptyScreenState extends State<SearchEmptyScreen> {
           restaurantId: restaurant.id,
           restaurantName: restaurant.name,
           userId: userId,
+          favoriteSource: 'search_screen',
         );
       } else {
         await AnalyticsService.instance.logRestaurantUnfavorited(
