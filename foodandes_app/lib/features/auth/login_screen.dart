@@ -5,6 +5,7 @@ import 'package:foodandes_app/core/constants/app_strings.dart';
 import 'package:foodandes_app/data/services/auth_services.dart';
 import 'package:foodandes_app/features/auth/register_screen.dart';
 import 'package:foodandes_app/features/home/home_screen.dart';
+import 'package:foodandes_app/data/services/analytics_service.dart';
 
 class LoginScreen extends StatefulWidget {
   static const String routeName = '/login';
@@ -33,10 +34,28 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      await _authServices.login(
+      final credential = await _authServices.login(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
+
+      final user = credential.user;
+
+      if (user != null) {
+        await AnalyticsService.instance.setUser(
+          userId: user.uid,
+          email: user.email,
+        );
+
+        await AnalyticsService.instance.logSignIn(
+          method: 'email',
+          userId: user.uid,
+        );
+
+        await AnalyticsService.instance.logUserSessionStart(
+          userId: user.uid,
+        );
+      }
 
       if (!mounted) return;
 

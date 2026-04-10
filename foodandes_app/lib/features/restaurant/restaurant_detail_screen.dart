@@ -7,6 +7,7 @@ import 'package:foodandes_app/features/restaurant/reviews_screen.dart';
 import 'package:foodandes_app/models/restaurant.dart';
 import 'package:foodandes_app/shared/widgets/open_badge.dart';
 import 'package:foodandes_app/data/services/analytics_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class RestaurantDetailScreen extends StatefulWidget {
   static const String routeName = '/restaurant-detail';
@@ -23,6 +24,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
   String? _restaurantId;
   Future<Restaurant?>? _restaurantFuture;
   bool _hasLoggedRestaurantView = false;
+  String? _lastLoggedRestaurantId;
 
   Future<Restaurant?> _fetchRestaurant(String restaurantId) async {
     return _repository.fetchRestaurantById(restaurantId);
@@ -50,15 +52,27 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
   Future<void> _toggleFavorite() async {
     if (_restaurantId == null) return;
 
-    try {
-      await _repository.toggleFavorite(_restaurantId!);
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not update favorites'),
-        ),
-      );
+    final restaurant = await _repository.fetchRestaurantById(_restaurantId!);
+    if (restaurant == null) return;
+
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    final willBeFavorite = !restaurant.isFavorite;
+
+    await _repository.toggleFavorite(_restaurantId!);
+
+    if (userId != null) {
+      if (willBeFavorite) {
+        await AnalyticsService.instance.logRestaurantFavorited(
+          restaurantId: restaurant.id,
+          restaurantName: restaurant.name,
+          userId: userId,
+        );
+      } else {
+        await AnalyticsService.instance.logRestaurantUnfavorited(
+          restaurantId: restaurant.id,
+          userId: userId,
+        );
+      }
     }
 
     setState(() {
@@ -92,19 +106,18 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
           }
 
           final restaurant = snapshot.data;
-          
-          if (!_hasLoggedRestaurantView) {
-          _hasLoggedRestaurantView = true;
-          Future.microtask(() async {
-            await AnalyticsService.instance.logRestaurantView(
-              restaurantId: restaurant!.id,
-              restaurantName: restaurant.name,
-              category: restaurant.category,
-              priceRange: restaurant.priceRange,
-            );
-          });
-        }
 
+          if (restaurant != null && _lastLoggedRestaurantId != restaurant.id) {
+            _lastLoggedRestaurantId = restaurant.id;
+            final userId = FirebaseAuth.instance.currentUser?.uid;
+
+            AnalyticsService.instance.logRestaurantView(
+              restaurantId: restaurant.id,
+              restaurantName: restaurant.name,
+              userId: userId,
+            );
+          }
+          
           if (restaurant == null) {
             return const Center(
               child: Text('Restaurant not found'),
@@ -273,6 +286,14 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                       child: FilledButton.icon(
                         onPressed: () async {
                           try {
+                            final userId = FirebaseAuth.instance.currentUser?.uid;
+
+                            await AnalyticsService.instance.logDirectionsRequested(
+                              restaurantId: restaurant.id,
+                              restaurantName: restaurant.name,
+                              userId: userId,
+                            );
+
                             await MapLauncherHelper.openDirections(
                               latitude: restaurant.latitude,
                               longitude: restaurant.longitude,

@@ -5,6 +5,8 @@ import 'package:foodandes_app/data/services/user_service.dart';
 import 'package:foodandes_app/features/auth/login_screen.dart';
 import 'package:foodandes_app/models/user_profile.dart';
 import 'package:foodandes_app/shared/widgets/custom_bottom_navbar.dart';
+import 'package:foodandes_app/data/services/analytics_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class ProfileScreen extends StatefulWidget {
   static const String routeName = '/profile';
@@ -28,6 +30,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _logout() async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+
+    if (currentUser != null) {
+      await AnalyticsService.instance.logUserSessionEnd(
+        userId: currentUser.uid,
+        sessionDurationSeconds: 0,
+      );
+    }
+
+    await AnalyticsService.instance.clearUser();
     await _authServices.logout();
 
     if (!mounted) return;

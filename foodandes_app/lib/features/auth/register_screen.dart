@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:foodandes_app/core/constants/app_colors.dart';
 import 'package:foodandes_app/data/services/auth_services.dart';
 import 'package:foodandes_app/features/home/home_screen.dart';
+import 'package:foodandes_app/data/services/analytics_service.dart';
 
 class RegisterScreen extends StatefulWidget {
   static const String routeName = '/register';
@@ -45,11 +46,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _isLoading = true);
 
     try {
-      await _authServices.register(
+      final credential = await _authServices.register(
         name: _nameController.text.trim(),
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
+
+      final user = credential.user;
+
+      if (user != null) {
+        await AnalyticsService.instance.setUser(
+          userId: user.uid,
+          email: user.email,
+        );
+
+        await AnalyticsService.instance.logSignUp(
+          method: 'email',
+          userId: user.uid,
+        );
+
+        await AnalyticsService.instance.logUserSessionStart(
+          userId: user.uid,
+        );
+      }
 
       if (!mounted) return;
 
