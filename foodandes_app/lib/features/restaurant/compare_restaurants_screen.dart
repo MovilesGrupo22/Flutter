@@ -3,6 +3,9 @@ import 'package:foodandes_app/core/constants/app_colors.dart';
 import 'package:foodandes_app/data/repositories/restaurant_repository.dart';
 import 'package:foodandes_app/models/restaurant.dart';
 import 'package:foodandes_app/shared/widgets/open_badge.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:foodandes_app/data/services/analytics_service.dart';
+
 
 class CompareRestaurantsScreen extends StatefulWidget {
   static const String routeName = '/compare-restaurants';
@@ -17,7 +20,8 @@ class CompareRestaurantsScreen extends StatefulWidget {
 class _CompareRestaurantsScreenState extends State<CompareRestaurantsScreen> {
   final RestaurantRepository _repository = RestaurantRepository();
   final TextEditingController _searchController = TextEditingController();
-
+  
+  bool _compareLogged = false;
   String? _baseRestaurantId;
   Restaurant? _baseRestaurant;
   List<Restaurant> _restaurants = [];
@@ -85,6 +89,24 @@ class _CompareRestaurantsScreenState extends State<CompareRestaurantsScreen> {
     }
   }
 
+  Future<void> _logCompareIfNeeded({
+    required Restaurant baseRestaurant,
+    required Restaurant selectedRestaurant,
+  }) async {
+    if (_compareLogged) return;
+
+    _compareLogged = true;
+
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+
+    await AnalyticsService.instance.logCompareUsed(
+      primaryRestaurantId: baseRestaurant.id,
+      secondaryRestaurantId: selectedRestaurant.id,
+      selectionMode: 'manual',
+      userId: userId,
+    );
+  }
+
   Restaurant? _restaurantById(String? id) {
     if (id == null) return null;
 
@@ -115,6 +137,15 @@ class _CompareRestaurantsScreenState extends State<CompareRestaurantsScreen> {
   @override
   Widget build(BuildContext context) {
     final selectedRestaurant = _restaurantById(_selectedRestaurantId);
+
+    if (_baseRestaurant != null && selectedRestaurant != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _logCompareIfNeeded(
+          baseRestaurant: _baseRestaurant!,
+          selectedRestaurant: selectedRestaurant,
+        );
+      });
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -200,6 +231,7 @@ class _CompareRestaurantsScreenState extends State<CompareRestaurantsScreen> {
                                 onTap: () {
                                   setState(() {
                                     _selectedRestaurantId = restaurant.id;
+                                    _compareLogged = false;
                                   });
                                 },
                               ),

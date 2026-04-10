@@ -7,6 +7,7 @@ import 'package:foodandes_app/models/restaurant.dart';
 import 'package:foodandes_app/shared/widgets/custom_bottom_navbar.dart';
 import 'package:foodandes_app/shared/widgets/open_badge.dart';
 import 'package:foodandes_app/data/services/analytics_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class MapScreen extends StatefulWidget {
   static const String routeName = '/map';
@@ -34,7 +35,12 @@ class _MapScreenState extends State<MapScreen> {
     _loadRestaurants();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      AnalyticsService.instance.logSectionOpened('map');
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+
+      AnalyticsService.instance.logSectionView(
+        section: AppSection.map,
+        userId: userId,
+      );
     });
   }
 

@@ -7,6 +7,7 @@ import 'package:foodandes_app/shared/widgets/custom_search_bar.dart';
 import 'package:foodandes_app/shared/widgets/empty_state_widget.dart';
 import 'package:foodandes_app/shared/widgets/restaurant_card.dart';
 import 'package:foodandes_app/data/services/analytics_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class SearchEmptyScreen extends StatefulWidget {
   static const String routeName = '/search-empty';
@@ -33,7 +34,12 @@ class _SearchEmptyScreenState extends State<SearchEmptyScreen> {
     _loadRestaurants();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      AnalyticsService.instance.logSectionOpened('search');
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+
+      AnalyticsService.instance.logSectionView(
+        section: AppSection.search,
+        userId: userId,
+      );
     });
   }
 
@@ -64,10 +70,38 @@ class _SearchEmptyScreenState extends State<SearchEmptyScreen> {
     setState(() {
       _filteredRestaurants = results;
     });
+
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+
+    if (value.trim().isNotEmpty) {
+      AnalyticsService.instance.logSearch(
+        query: value.trim(),
+        resultsCount: results.length,
+        userId: userId,
+      );
+    }
   }
 
-  Future<void> _toggleFavorite(String restaurantId) async {
-    await _repository.toggleFavorite(restaurantId);
+  Future<void> _toggleFavorite(Restaurant restaurant) async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    final willBeFavorite = !restaurant.isFavorite;
+
+    await _repository.toggleFavorite(restaurant.id);
+
+    if (userId != null) {
+      if (willBeFavorite) {
+        await AnalyticsService.instance.logRestaurantFavorited(
+          restaurantId: restaurant.id,
+          restaurantName: restaurant.name,
+          userId: userId,
+        );
+      } else {
+        await AnalyticsService.instance.logRestaurantUnfavorited(
+          restaurantId: restaurant.id,
+          userId: userId,
+        );
+      }
+    }
     await _loadRestaurants();
 
     _onSearchChanged(_searchController.text);
@@ -132,7 +166,7 @@ class _SearchEmptyScreenState extends State<SearchEmptyScreen> {
                                         favoriteFilled:
                                             restaurant.isFavorite,
                                         onFavoriteTap: () =>
-                                            _toggleFavorite(restaurant.id),
+                                            _toggleFavorite(restaurant),
                                         onTap: () async {
                                           await Navigator.pushNamed(
                                             context,

@@ -6,6 +6,7 @@ import 'package:foodandes_app/models/restaurant.dart';
 import 'package:foodandes_app/shared/widgets/custom_bottom_navbar.dart';
 import 'package:foodandes_app/shared/widgets/restaurant_card.dart';
 import 'package:foodandes_app/data/services/analytics_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class FavoritesScreen extends StatefulWidget {
   static const String routeName = '/favorites';
@@ -27,7 +28,12 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     _loadFavorites();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      AnalyticsService.instance.logSectionOpened('favorites');
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+
+      AnalyticsService.instance.logSectionView(
+        section: AppSection.favorites,
+        userId: userId,
+      );
     });
   }
 
@@ -35,8 +41,27 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     _favoritesFuture = _repository.fetchFavoriteRestaurants();
   }
 
-  Future<void> _toggleFavorite(String restaurantId) async {
-    await _repository.toggleFavorite(restaurantId);
+  Future<void> _toggleFavorite(Restaurant restaurant) async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    final willBeFavorite = !restaurant.isFavorite;
+
+    await _repository.toggleFavorite(restaurant.id);
+
+    if (userId != null) {
+      if (willBeFavorite) {
+        await AnalyticsService.instance.logRestaurantFavorited(
+          restaurantId: restaurant.id,
+          restaurantName: restaurant.name,
+          userId: userId,
+        );
+      } else {
+        await AnalyticsService.instance.logRestaurantUnfavorited(
+          restaurantId: restaurant.id,
+          userId: userId,
+        );
+      }
+    }
+
     setState(() {
       _loadFavorites();
     });
@@ -91,7 +116,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                     restaurant: restaurant,
                     showFavoriteIcon: true,
                     favoriteFilled: true,
-                    onFavoriteTap: () => _toggleFavorite(restaurant.id),
+                    onFavoriteTap: () => _toggleFavorite(restaurant),
                     onTap: () async {
                       await Navigator.pushNamed(
                         context,

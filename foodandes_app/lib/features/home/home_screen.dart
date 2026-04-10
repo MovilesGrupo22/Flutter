@@ -8,6 +8,7 @@ import 'package:foodandes_app/shared/widgets/category_chip.dart';
 import 'package:foodandes_app/shared/widgets/custom_bottom_navbar.dart';
 import 'package:foodandes_app/shared/widgets/restaurant_card.dart';
 import 'package:foodandes_app/data/services/analytics_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class HomeScreen extends StatefulWidget {
   static const String routeName = '/home';
@@ -37,7 +38,14 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadRestaurants();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      AnalyticsService.instance.logSectionOpened('home');
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+
+      AnalyticsService.instance.logSectionView(
+        section: AppSection.home,
+        userId: userId,
+      );
+
+      AnalyticsService.instance.logFlutterSmokeTest();
     });
 }
 
@@ -74,8 +82,27 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  Future<void> _toggleFavorite(String restaurantId) async {
-    await _repository.toggleFavorite(restaurantId);
+  Future<void> _toggleFavorite(Restaurant restaurant) async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    final willBeFavorite = !restaurant.isFavorite;
+
+    await _repository.toggleFavorite(restaurant.id);
+
+    if (userId != null) {
+      if (willBeFavorite) {
+        await AnalyticsService.instance.logRestaurantFavorited(
+          restaurantId: restaurant.id,
+          restaurantName: restaurant.name,
+          userId: userId,
+        );
+      } else {
+        await AnalyticsService.instance.logRestaurantUnfavorited(
+          restaurantId: restaurant.id,
+          userId: userId,
+        );
+      }
+    }
+
     await _refreshRestaurants();
   }
 
@@ -83,11 +110,14 @@ class _HomeScreenState extends State<HomeScreen> {
     required String filterType,
     required String filterValue,
   }) async {
-    await AnalyticsService.instance.logFilterApplied(
-      filterType: filterType,
-      filterValue: filterValue,
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+
+    await AnalyticsService.instance.logFilterUsed(
+      filterType: '$filterType:$filterValue',
+      userId: userId,
     );
-}
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -273,7 +303,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         restaurant: restaurant,
                         showFavoriteIcon: true,
                         favoriteFilled: restaurant.isFavorite,
-                        onFavoriteTap: () => _toggleFavorite(restaurant.id),
+                        onFavoriteTap: () => _toggleFavorite(restaurant),
                         onTap: () async {
                           await Navigator.pushNamed(
                             context,
