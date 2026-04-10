@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:foodandes_app/core/constants/app_colors.dart';
 import 'package:foodandes_app/data/services/auth_services.dart';
 import 'package:foodandes_app/data/services/user_service.dart';
+import 'package:foodandes_app/data/services/review_service.dart';
 import 'package:foodandes_app/features/auth/login_screen.dart';
 import 'package:foodandes_app/models/user_profile.dart';
 import 'package:foodandes_app/shared/widgets/custom_bottom_navbar.dart';
@@ -19,14 +20,17 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final UserService _userService = UserService();
+  final ReviewService _reviewService = ReviewService();
   final AuthServices _authServices = AuthServices();
 
   late Future<UserProfile?> _profileFuture;
+  late Future<int> _reviewCountFuture;
 
   @override
   void initState() {
     super.initState();
     _profileFuture = _userService.getCurrentUserProfile();
+    _reviewCountFuture = _reviewService.getCurrentUserReviewCount();
   }
 
   Future<void> _logout() async {
@@ -124,10 +128,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ),
                     const SizedBox(width: 16),
-                    const Expanded(
-                      child: _ProfileStatCard(
-                        label: 'Reviews',
-                        value: '-',
+                    Expanded(
+                      child: FutureBuilder<int>(
+                        future: _reviewCountFuture,
+                        builder: (context, reviewCountSnapshot) {
+                          final reviewCount = reviewCountSnapshot.data ?? 0;
+
+                          return _ProfileStatCard(
+                            label: 'Reviews',
+                            value: reviewCount.toString(),
+                          );
+                        },
                       ),
                     ),
                   ],

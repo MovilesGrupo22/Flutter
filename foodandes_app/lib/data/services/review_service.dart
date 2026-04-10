@@ -20,6 +20,19 @@ class ReviewService {
     return reviews;
   }
 
+
+  Future<int> getCurrentUserReviewCount() async {
+    final currentUser = _auth.currentUser;
+    if (currentUser == null) return 0;
+
+    final snapshot = await _firestore
+        .collection('reviews')
+        .where('userId', isEqualTo: currentUser.uid)
+        .get();
+
+    return snapshot.docs.length;
+  }
+
   Future<void> createReview({
     required String restaurantId,
     required String comment,
