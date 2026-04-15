@@ -5,6 +5,8 @@ import 'package:foodandes_app/models/restaurant.dart';
 import 'package:foodandes_app/shared/widgets/category_chip.dart';
 import 'package:foodandes_app/shared/widgets/custom_bottom_navbar.dart';
 import 'package:foodandes_app/shared/widgets/restaurant_card.dart';
+import 'package:foodandes_app/data/services/analytics_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class HomeFilteredScreen extends StatefulWidget {
   static const String routeName = '/home-filtered';
@@ -30,8 +32,28 @@ class _HomeFilteredScreenState extends State<HomeFilteredScreen> {
     _restaurantsFuture = _repository.fetchRestaurants();
   }
 
-  Future<void> _toggleFavorite(String restaurantId) async {
-    await _repository.toggleFavorite(restaurantId);
+  Future<void> _toggleFavorite(Restaurant restaurant) async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    final willBeFavorite = !restaurant.isFavorite;
+
+    await _repository.toggleFavorite(restaurant.id);
+
+    if (userId != null) {
+      if (willBeFavorite) {
+        await AnalyticsService.instance.logRestaurantFavorited(
+          restaurantId: restaurant.id,
+          restaurantName: restaurant.name,
+          userId: userId,
+          favoriteSource: 'home_filtered_screen',
+        );
+      } else {
+        await AnalyticsService.instance.logRestaurantUnfavorited(
+          restaurantId: restaurant.id,
+          userId: userId,
+        );
+      }
+    }
+
     setState(() {
       _loadRestaurants();
     });
@@ -92,7 +114,7 @@ class _HomeFilteredScreenState extends State<HomeFilteredScreen> {
                     restaurant: restaurant,
                     showFavoriteIcon: true,
                     favoriteFilled: restaurant.isFavorite,
-                    onFavoriteTap: () => _toggleFavorite(restaurant.id),
+                    onFavoriteTap: () => _toggleFavorite(restaurant),
                     onTap: () async {
                       await Navigator.pushNamed(
                         context,
