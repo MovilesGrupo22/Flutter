@@ -8,7 +8,10 @@ import 'package:foodandes_app/shared/widgets/category_chip.dart';
 import 'package:foodandes_app/shared/widgets/custom_bottom_navbar.dart';
 import 'package:foodandes_app/shared/widgets/restaurant_card.dart';
 import 'package:foodandes_app/data/services/analytics_service.dart';
+import 'package:foodandes_app/data/services/popular_filters_service.dart';
+import 'package:foodandes_app/data/services/cas_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:async';
 
 class HomeScreen extends StatefulWidget {
   static const String routeName = '/home';
@@ -32,10 +35,22 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _onlyTopRated = false;
   String _selectedPriceRange = 'All';
 
+  // --- NUEVO: filtros populares ---
+  List<String> _topCategories = [];
+  List<String> _topPriceRanges = [];
+  List<String> _topQuickChips = [];
+
+  // --- CAS: contexto por hora del dispositivo ---
+  String _casContextMessage = '';
+  bool _casAutoOpenEnabled = false;
+  Timer? _casTimer;
+
   @override
   void initState() {
     super.initState();
     _loadRestaurants();
+    _loadPopularFilters(); // NUEVO
+    _initCas();           // CAS
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final userId = FirebaseAuth.instance.currentUser?.uid;
@@ -47,10 +62,64 @@ class _HomeScreenState extends State<HomeScreen> {
 
       AnalyticsService.instance.logFlutterSmokeTest();
     });
-}
+  }
+
+  // --- CAS: inicializa el contexto por hora y actualiza cada minuto ---
+  void _initCas() {
+    _updateCasContext();
+    // Refresh every minute so the banner and filter stay in sync with the clock
+    _casTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      _updateCasContext();
+    });
+  }
+
+  void _updateCasContext() {
+    final message = CasService.instance.getContextMessage();
+    final isMealTime = CasService.instance.isMealTime();
+
+    if (!mounted) return;
+
+    setState(() {
+      _casContextMessage = message;
+      // Auto-enable Open filter during meal hours, disable outside of them
+      if (isMealTime && !_casAutoOpenEnabled) {
+        _casAutoOpenEnabled = true;
+        _onlyOpen = true;
+        _applyFilters();
+      } else if (!isMealTime && _casAutoOpenEnabled) {
+        _casAutoOpenEnabled = false;
+        _onlyOpen = false;
+        _applyFilters();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _casTimer?.cancel();
+    super.dispose();
+  }
 
   void _loadRestaurants() {
     _restaurantsFuture = _repository.fetchRestaurants();
+  }
+
+  // --- NUEVO: carga los filtros más usados desde Firestore ---
+  Future<void> _loadPopularFilters() async {
+    final categories = await PopularFiltersService.instance
+        .getTopFilters(filterType: 'category');
+    final prices = await PopularFiltersService.instance
+        .getTopFilters(filterType: 'price_range');
+    final chips = await PopularFiltersService.instance
+        .getTopFilters(filterType: 'quick_chip');
+
+    if (!mounted) return;
+
+    setState(() {
+      _topCategories = categories;
+      _topPriceRanges = prices;
+      _topQuickChips = chips.where((c) => !c.endsWith('_Off')).toList();
+    });
   }
 
   void _applyFilters() {
@@ -107,15 +176,23 @@ class _HomeScreenState extends State<HomeScreen> {
     await _refreshRestaurants();
   }
 
+  // --- MODIFICADO: ahora también incrementa el contador en Firestore ---
   Future<void> _logFilter({
     required String filterType,
     required String filterValue,
   }) async {
     final userId = FirebaseAuth.instance.currentUser?.uid;
 
+    // Analytics (ya existía)
     await AnalyticsService.instance.logFilterUsed(
       filterType: '$filterType:$filterValue',
       userId: userId,
+    );
+
+    // Contador en Firestore (NUEVO)
+    await PopularFiltersService.instance.incrementFilter(
+      filterType: filterType,
+      filterValue: filterValue,
     );
   }
 
@@ -183,6 +260,59 @@ class _HomeScreenState extends State<HomeScreen> {
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                // --- CAS: banner de contexto por hora ---
+                if (_casContextMessage.isNotEmpty)
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: _casAutoOpenEnabled
+                          ? Colors.green.shade50
+                          : Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: _casAutoOpenEnabled
+                            ? Colors.green.shade200
+                            : Colors.blue.shade200,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _casContextMessage,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: _casAutoOpenEnabled
+                                  ? Colors.green.shade800
+                                  : Colors.blue.shade800,
+                            ),
+                          ),
+                        ),
+                        if (_casAutoOpenEnabled)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: Colors.green.shade100,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              'Open filter: ON',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.green.shade800,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                // --- FIN banner CAS ---
+
                 const Text(
                   'Filters',
                   style: TextStyle(
@@ -190,6 +320,86 @@ class _HomeScreenState extends State<HomeScreen> {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
+
+                // --- NUEVO: sección de filtros más usados ---
+                if (_topCategories.isNotEmpty ||
+                    _topPriceRanges.isNotEmpty ||
+                    _topQuickChips.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  const Text(
+                    '🔥 Most used',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: [
+                      // Quick chips populares (Open, Top Rated)
+                      ..._topQuickChips.map((chip) => ActionChip(
+                            label: Text(chip),
+                            avatar: const Icon(
+                              Icons.local_fire_department,
+                              size: 14,
+                              color: Colors.deepOrange,
+                            ),
+                            onPressed: () async {
+                              if (chip == 'Open') {
+                                _onlyOpen = true;
+                              } else if (chip == 'Top Rated') {
+                                _onlyTopRated = true;
+                              }
+                              _applyFilters();
+                              await _logFilter(
+                                filterType: 'quick_chip',
+                                filterValue: chip,
+                              );
+                            },
+                          )),
+                      // Categorías populares
+                      ..._topCategories.map((cat) => ActionChip(
+                            label: Text(cat),
+                            avatar: const Icon(
+                              Icons.restaurant,
+                              size: 14,
+                              color: Colors.deepOrange,
+                            ),
+                            onPressed: () async {
+                              _selectedCategory = cat;
+                              _applyFilters();
+                              await _logFilter(
+                                filterType: 'category',
+                                filterValue: cat,
+                              );
+                            },
+                          )),
+                      // Rangos de precio populares
+                      ..._topPriceRanges.map((price) => ActionChip(
+                            label: Text(price),
+                            avatar: const Icon(
+                              Icons.attach_money,
+                              size: 14,
+                              color: Colors.green,
+                            ),
+                            onPressed: () async {
+                              _selectedPriceRange = price;
+                              _applyFilters();
+                              await _logFilter(
+                                filterType: 'price_range',
+                                filterValue: price,
+                              );
+                            },
+                          )),
+                    ],
+                  ),
+                  const Divider(height: 20),
+                ],
+                // --- FIN sección filtros más usados ---
+
                 const SizedBox(height: 12),
 
                 SizedBox(
@@ -229,12 +439,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       CategoryChip(
                         label: 'Top Rated',
                         selected: _onlyTopRated,
-                        onTap: () async{
+                        onTap: () async {
                           _onlyTopRated = !_onlyTopRated;
                           _applyFilters();
                           await _logFilter(
                             filterType: 'quick_chip',
-                            filterValue: _onlyTopRated ? 'Top Rated' : 'Top Rated_Off',
+                            filterValue:
+                                _onlyTopRated ? 'Top Rated' : 'Top Rated_Off',
                           );
                         },
                       ),
@@ -244,7 +455,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             (category) => CategoryChip(
                               label: category,
                               selected: _selectedCategory == category,
-                              onTap: () async{
+                              onTap: () async {
                                 _selectedCategory =
                                     _selectedCategory == category
                                         ? 'All'
