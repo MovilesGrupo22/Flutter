@@ -8,6 +8,7 @@ import 'package:foodandes_app/models/restaurant.dart';
 import 'package:foodandes_app/shared/widgets/open_badge.dart';
 import 'package:foodandes_app/data/services/analytics_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:foodandes_app/data/services/trending_restaurants_service.dart';
 
 class RestaurantDetailScreen extends StatefulWidget {
   static const String routeName = '/restaurant-detail';
@@ -68,6 +69,11 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
           userId: userId,
           favoriteSource: 'detail_screen',
         );
+
+        await TrendingRestaurantsService.instance.recordRestaurantFavorited(
+          restaurantId: restaurant.id,
+          restaurantName: restaurant.name,
+        );
       } else {
         await AnalyticsService.instance.logRestaurantUnfavorited(
           restaurantId: restaurant.id,
@@ -116,6 +122,11 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
               restaurantId: restaurant.id,
               restaurantName: restaurant.name,
               userId: userId,
+            );
+
+            TrendingRestaurantsService.instance.recordRestaurantView(
+              restaurantId: restaurant.id,
+              restaurantName: restaurant.name,
             );
           }
           

@@ -7,6 +7,7 @@ import 'package:foodandes_app/shared/widgets/custom_bottom_navbar.dart';
 import 'package:foodandes_app/shared/widgets/restaurant_card.dart';
 import 'package:foodandes_app/data/services/analytics_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:foodandes_app/data/services/trending_restaurants_service.dart';
 
 class FavoritesScreen extends StatefulWidget {
   static const String routeName = '/favorites';
@@ -54,6 +55,11 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
           restaurantName: restaurant.name,
           userId: userId,
           favoriteSource: 'favorites_screen',
+        );
+
+        await TrendingRestaurantsService.instance.recordRestaurantFavorited(
+          restaurantId: restaurant.id,
+          restaurantName: restaurant.name,
         );
       } else {
         await AnalyticsService.instance.logRestaurantUnfavorited(

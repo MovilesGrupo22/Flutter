@@ -11,6 +11,7 @@ import 'package:foodandes_app/data/services/analytics_service.dart';
 import 'package:foodandes_app/data/services/popular_filters_service.dart';
 import 'package:foodandes_app/data/services/cas_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:foodandes_app/data/services/trending_restaurants_service.dart';
 import 'dart:async';
 
 class HomeScreen extends StatefulWidget {
@@ -29,6 +30,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   List<Restaurant> _allRestaurants = [];
   List<Restaurant> _filteredRestaurants = [];
+
+  List<Restaurant> _trendingRestaurants = [];
+  bool _isTrendingLoading = true;
 
   String _selectedCategory = 'All';
   bool _onlyOpen = false;
@@ -50,6 +54,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _loadRestaurants();
     _loadPopularFilters(); // NUEVO
+    _loadTrendingRestaurants(); // NUEVO
     _initCas();           // CAS
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -62,6 +67,27 @@ class _HomeScreenState extends State<HomeScreen> {
 
       AnalyticsService.instance.logFlutterSmokeTest();
     });
+  }
+
+  Future<void> _loadTrendingRestaurants() async {
+    try {
+      final trending = await TrendingRestaurantsService.instance
+          .getTrendingRestaurants(topN: 5);
+
+      if (!mounted) return;
+
+      setState(() {
+        _trendingRestaurants = trending;
+        _isTrendingLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _trendingRestaurants = [];
+        _isTrendingLoading = false;
+      });
+    }
   }
 
   // --- CAS: inicializa el contexto por hora y actualiza cada minuto ---
@@ -149,6 +175,8 @@ class _HomeScreenState extends State<HomeScreen> {
         selectedPriceRange: _selectedPriceRange,
       );
     });
+
+    await _loadTrendingRestaurants();
   }
 
   Future<void> _toggleFavorite(Restaurant restaurant) async {
@@ -164,6 +192,11 @@ class _HomeScreenState extends State<HomeScreen> {
           restaurantName: restaurant.name,
           userId: userId,
           favoriteSource: 'home_screen',
+        );
+
+        await TrendingRestaurantsService.instance.recordRestaurantFavorited(
+          restaurantId: restaurant.id,
+          restaurantName: restaurant.name,
         );
       } else {
         await AnalyticsService.instance.logRestaurantUnfavorited(
@@ -312,7 +345,51 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 // --- FIN banner CAS ---
+                if (_isTrendingLoading) ...[
+                  const SizedBox(height: 8),
+                  const Center(child: CircularProgressIndicator()),
+                ] else if (_trendingRestaurants.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  const Text(
+                    '🔥 Trending now on campus',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    height: 300,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _trendingRestaurants.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 12),
+                      itemBuilder: (context, index) {
+                        final restaurant = _trendingRestaurants[index];
 
+                        return SizedBox(
+                          width: 280,
+                          child: RestaurantCard(
+                            restaurant: restaurant,
+                            showFavoriteIcon: true,
+                            favoriteFilled: restaurant.isFavorite,
+                            onFavoriteTap: () => _toggleFavorite(restaurant),
+                            onTap: () async {
+                              await Navigator.pushNamed(
+                                context,
+                                RestaurantDetailScreen.routeName,
+                                arguments: restaurant.id,
+                              );
+
+                              await _refreshRestaurants();
+                            },
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 const Text(
                   'Filters',
                   style: TextStyle(
