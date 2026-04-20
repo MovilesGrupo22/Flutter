@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:foodandes_app/core/constants/app_colors.dart';
 import 'package:foodandes_app/data/services/auth_services.dart';
@@ -5,7 +7,6 @@ import 'package:foodandes_app/data/services/user_service.dart';
 import 'package:foodandes_app/data/services/review_service.dart';
 import 'package:foodandes_app/features/auth/login_screen.dart';
 import 'package:foodandes_app/models/user_profile.dart';
-import 'package:foodandes_app/shared/widgets/custom_bottom_navbar.dart';
 import 'package:foodandes_app/data/services/analytics_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -29,8 +30,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+    unawaited(_authServices.syncCurrentUserDocument());
     _profileFuture = _userService.getCurrentUserProfile();
     _reviewCountFuture = _reviewService.getCurrentUserReviewCount();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      AnalyticsService.instance.logSectionView(
+        section: AppSection.profile,
+        userId: userId,
+      );
+    });
   }
 
   Future<void> _logout() async {
@@ -61,7 +71,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: AppBar(
         title: const Text('Profile'),
       ),
-      bottomNavigationBar: const CustomBottomNavbar(currentIndex: 0),
       body: FutureBuilder<UserProfile?>(
         future: _profileFuture,
         builder: (context, snapshot) {
@@ -85,96 +94,125 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ? profile.name.trim().split(' ').map((e) => e[0]).take(2).join()
               : 'U';
 
-          return Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              children: [
-                const SizedBox(height: 20),
-                CircleAvatar(
-                  radius: 40,
-                  backgroundColor: AppColors.primary,
-                  child: Text(
-                    initials.toUpperCase(),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 18),
-                Text(
-                  profile.name,
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  profile.email,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 28),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _ProfileStatCard(
-                        label: 'Favorites',
-                        value: '${profile.favoriteRestaurants.length}',
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: FutureBuilder<int>(
-                        future: _reviewCountFuture,
-                        builder: (context, reviewCountSnapshot) {
-                          final reviewCount = reviewCountSnapshot.data ?? 0;
+          return SafeArea(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final cardWidth = constraints.maxWidth < 420
+                    ? constraints.maxWidth
+                    : (constraints.maxWidth - 16) / 2;
 
-                          return _ProfileStatCard(
-                            label: 'Reviews',
-                            value: reviewCount.toString(),
-                          );
-                        },
-                      ),
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight - 40,
                     ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                if (profile.dietaryPreferences.isNotEmpty) ...[
-                  const Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Dietary Preferences',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const SizedBox(height: 20),
+                        Center(
+                          child: CircleAvatar(
+                            radius: 40,
+                            backgroundColor: AppColors.primary,
+                            backgroundImage: profile.photoURL.isNotEmpty
+                                ? NetworkImage(profile.photoURL)
+                                : null,
+                            child: profile.photoURL.isEmpty
+                                ? Text(
+                                    initials.toUpperCase(),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  )
+                                : null,
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        Text(
+                          profile.name,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          profile.email,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 28),
+                        Wrap(
+                          spacing: 16,
+                          runSpacing: 16,
+                          children: [
+                            SizedBox(
+                              width: cardWidth,
+                              child: _ProfileStatCard(
+                                label: 'Favorites',
+                                value: '${profile.favoriteRestaurants.length}',
+                              ),
+                            ),
+                            SizedBox(
+                              width: cardWidth,
+                              child: FutureBuilder<int>(
+                                future: _reviewCountFuture,
+                                builder: (context, reviewCountSnapshot) {
+                                  final reviewCount = reviewCountSnapshot.data ?? 0;
+
+                                  return _ProfileStatCard(
+                                    label: 'Reviews',
+                                    value: reviewCount.toString(),
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+                        if (profile.dietaryPreferences.isNotEmpty) ...[
+                          const Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'Dietary Preferences',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: profile.dietaryPreferences.map((pref) {
+                              return Chip(label: Text(pref));
+                            }).toList(),
+                          ),
+                          const SizedBox(height: 28),
+                        ] else
+                          const SizedBox(height: 28),
+                        OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.primary,
+                            side: const BorderSide(color: AppColors.primary),
+                            minimumSize: const Size.fromHeight(56),
+                          ),
+                          onPressed: _logout,
+                          child: const Text('Logout'),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: profile.dietaryPreferences.map((pref) {
-                      return Chip(label: Text(pref));
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 28),
-                ],
-                OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.primary,
-                    side: const BorderSide(color: AppColors.primary),
-                    minimumSize: const Size.fromHeight(56),
-                  ),
-                  onPressed: _logout,
-                  child: const Text('Logout'),
-                ),
-              ],
+                );
+              },
             ),
           );
         },

@@ -140,16 +140,17 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
             children: [
               Stack(
                 children: [
-                  Image.network(
-                    restaurant.imageURL,
-                    height: 260,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      height: 260,
-                      color: Colors.grey.shade300,
-                      child: const Center(
-                        child: Icon(Icons.image_not_supported, size: 50),
+                  AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: Image.network(
+                      restaurant.imageURL,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        color: Colors.grey.shade300,
+                        child: const Center(
+                          child: Icon(Icons.image_not_supported, size: 50),
+                        ),
                       ),
                     ),
                   ),
@@ -300,6 +301,15 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                           try {
                             final userId = FirebaseAuth.instance.currentUser?.uid;
 
+                                    await AnalyticsService.instance.logSectionInteraction(
+                              section: AppSection.detail,
+                              action: 'request_directions',
+                              userId: userId,
+                              additionalParameters: {
+                                'restaurant_id': restaurant.id,
+                              },
+                            );
+
                             await AnalyticsService.instance.logDirectionsRequested(
                               restaurantId: restaurant.id,
                               restaurantName: restaurant.name,
@@ -328,77 +338,109 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () async {
-                              await Navigator.pushNamed(
-                                context,
-                                ReviewsScreen.routeName,
-                                arguments: {
-                                  'restaurantId': restaurant.id,
-                                  'restaurantName': restaurant.name,
-                                },
-                              );
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isCompact = constraints.maxWidth < 360;
 
-                              if (!mounted) return;
+                        final reviewButton = OutlinedButton.icon(
+                          onPressed: () async {
+                            await AnalyticsService.instance.logSectionInteraction(
+                              section: AppSection.detail,
+                              action: 'open_reviews',
+                              userId: FirebaseAuth.instance.currentUser?.uid,
+                              additionalParameters: {
+                                'restaurant_id': restaurant.id,
+                              },
+                            );
+                            await Navigator.pushNamed(
+                              context,
+                              ReviewsScreen.routeName,
+                              arguments: {
+                                'restaurantId': restaurant.id,
+                                'restaurantName': restaurant.name,
+                              },
+                            );
 
-                              setState(() {
-                                _loadRestaurant();
-                              });
-                            },
-                            icon: const Icon(
-                              Icons.rate_review,
-                              color: AppColors.primary,
-                            ),
-                            label: const Text(
-                              'Reviews',
-                              style: TextStyle(color: AppColors.primary),
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              minimumSize: const Size.fromHeight(50),
-                              side: const BorderSide(color: AppColors.border),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(24),
-                              ),
+                            if (!mounted) return;
+
+                            setState(() {
+                              _loadRestaurant();
+                            });
+                          },
+                          icon: const Icon(
+                            Icons.rate_review,
+                            color: AppColors.primary,
+                          ),
+                          label: const Text(
+                            'Reviews',
+                            style: TextStyle(color: AppColors.primary),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size.fromHeight(50),
+                            side: const BorderSide(color: AppColors.border),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(24),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () async {
-                              await Navigator.pushNamed(
-                                context,
-                                CompareRestaurantsScreen.routeName,
-                                arguments: restaurant.id,
-                              );
+                        );
 
-                              if (!context.mounted) return;
+                        final compareButton = OutlinedButton.icon(
+                          onPressed: () async {
+                            await AnalyticsService.instance.logSectionInteraction(
+                              section: AppSection.detail,
+                              action: 'open_compare',
+                              userId: FirebaseAuth.instance.currentUser?.uid,
+                              additionalParameters: {
+                                'restaurant_id': restaurant.id,
+                              },
+                            );
+                            await Navigator.pushNamed(
+                              context,
+                              CompareRestaurantsScreen.routeName,
+                              arguments: restaurant.id,
+                            );
 
-                              setState(() {
-                                _loadRestaurant();
-                              });
-                            },
-                            icon: const Icon(
-                              Icons.compare_arrows,
-                              color: AppColors.primary,
-                            ),
-                            label: const Text(
-                              'Compare',
-                              style: TextStyle(color: AppColors.primary),
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              minimumSize: const Size.fromHeight(50),
-                              side: const BorderSide(color: AppColors.border),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(24),
-                              ),
+                            if (!context.mounted) return;
+
+                            setState(() {
+                              _loadRestaurant();
+                            });
+                          },
+                          icon: const Icon(
+                            Icons.compare_arrows,
+                            color: AppColors.primary,
+                          ),
+                          label: const Text(
+                            'Compare',
+                            style: TextStyle(color: AppColors.primary),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size.fromHeight(50),
+                            side: const BorderSide(color: AppColors.border),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(24),
                             ),
                           ),
-                        ),
-                      ],
+                        );
+
+                        if (isCompact) {
+                          return Column(
+                            children: [
+                              SizedBox(width: double.infinity, child: reviewButton),
+                              const SizedBox(height: 12),
+                              SizedBox(width: double.infinity, child: compareButton),
+                            ],
+                          );
+                        }
+
+                        return Row(
+                          children: [
+                            Expanded(child: reviewButton),
+                            const SizedBox(width: 12),
+                            Expanded(child: compareButton),
+                          ],
+                        );
+                      },
                     ),
                   ],
                 ),

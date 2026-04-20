@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:foodandes_app/data/repositories/restaurant_repository.dart';
 import 'package:foodandes_app/features/restaurant/restaurant_detail_screen.dart';
@@ -27,6 +29,8 @@ class _SearchEmptyScreenState extends State<SearchEmptyScreen> {
   List<Restaurant> _allRestaurants = [];
   List<Restaurant> _filteredRestaurants = [];
   bool _isLoadingRestaurants = true;
+  Timer? _searchAnalyticsDebounce;
+  String _lastTrackedQuery = '';
 
   @override
   void initState() {
@@ -41,6 +45,19 @@ class _SearchEmptyScreenState extends State<SearchEmptyScreen> {
         userId: userId,
       );
     });
+  }
+
+  Future<void> _logSearchInteraction(
+    String action, {
+    Map<String, Object>? additionalParameters,
+  }) async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    await AnalyticsService.instance.logSectionInteraction(
+      section: AppSection.search,
+      action: action,
+      userId: userId,
+      additionalParameters: additionalParameters,
+    );
   }
 
   Future<void> _loadRestaurants() async {
@@ -62,6 +79,7 @@ class _SearchEmptyScreenState extends State<SearchEmptyScreen> {
   }
 
   void _onSearchChanged(String value) {
+    final trimmedValue = value.trim();
     final results = _repository.filterRestaurants(
       restaurants: _allRestaurants,
       query: value,
@@ -71,15 +89,32 @@ class _SearchEmptyScreenState extends State<SearchEmptyScreen> {
       _filteredRestaurants = results;
     });
 
-    final userId = FirebaseAuth.instance.currentUser?.uid;
+    _searchAnalyticsDebounce?.cancel();
 
-    if (value.trim().isNotEmpty) {
+    if (trimmedValue.isEmpty) {
+      _lastTrackedQuery = '';
+      return;
+    }
+
+    _searchAnalyticsDebounce = Timer(const Duration(milliseconds: 500), () {
+      if (!mounted || trimmedValue == _lastTrackedQuery) return;
+
+      _lastTrackedQuery = trimmedValue;
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+
       AnalyticsService.instance.logSearch(
-        query: value.trim(),
+        query: trimmedValue,
         resultsCount: results.length,
         userId: userId,
       );
-    }
+
+      _logSearchInteraction(
+        'search_executed',
+        additionalParameters: {
+          'results_count': results.length,
+        },
+      );
+    });
   }
 
   Future<void> _toggleFavorite(Restaurant restaurant) async {
@@ -87,6 +122,13 @@ class _SearchEmptyScreenState extends State<SearchEmptyScreen> {
     final willBeFavorite = !restaurant.isFavorite;
 
     await _repository.toggleFavorite(restaurant.id);
+
+    await _logSearchInteraction(
+      willBeFavorite ? 'favorite_added' : 'favorite_removed',
+      additionalParameters: {
+        'restaurant_id': restaurant.id,
+      },
+    );
 
     if (userId != null) {
       if (willBeFavorite) {
@@ -110,6 +152,7 @@ class _SearchEmptyScreenState extends State<SearchEmptyScreen> {
 
   @override
   void dispose() {
+    _searchAnalyticsDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -169,6 +212,12 @@ class _SearchEmptyScreenState extends State<SearchEmptyScreen> {
                                         onFavoriteTap: () =>
                                             _toggleFavorite(restaurant),
                                         onTap: () async {
+                                          await _logSearchInteraction(
+                                            'open_search_result',
+                                            additionalParameters: {
+                                              'restaurant_id': restaurant.id,
+                                            },
+                                          );
                                           await Navigator.pushNamed(
                                             context,
                                             RestaurantDetailScreen.routeName,

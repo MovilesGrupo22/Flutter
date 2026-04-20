@@ -52,6 +52,7 @@ class TrendingRestaurantsService {
   Future<List<Restaurant>> getTrendingRestaurants({
     int topN = 5,
     Duration window = const Duration(hours: 24),
+    List<Restaurant>? sourceRestaurants,
   }) async {
     try {
       final cutoff = Timestamp.fromDate(DateTime.now().subtract(window));
@@ -87,9 +88,7 @@ class TrendingRestaurantsService {
           .map((e) => e.key)
           .toSet();
 
-      // FIX: usa el singleton con caché → no hace una nueva lectura Firestore
-      // si HomeScreen ya cargó los restaurantes en los últimos 60 segundos.
-      final restaurants = await RestaurantService.instance.getRestaurants();
+      final restaurants = sourceRestaurants ?? await RestaurantService.instance.getRestaurants();
 
       final filtered =
           restaurants.where((r) => topIds.contains(r.id)).toList()

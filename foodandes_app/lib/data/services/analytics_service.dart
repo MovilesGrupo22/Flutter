@@ -1,4 +1,9 @@
+import 'dart:async';
+
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/widgets.dart';
+import 'package:foodandes_app/data/services/section_usage_service.dart';
 
 enum AppSection {
   home,
@@ -28,6 +33,38 @@ class AnalyticsService {
     });
 
     _initialized = true;
+  }
+
+  AppSection? sectionFromRouteName(String? routeName) {
+    switch (routeName) {
+      case '/home':
+      case '/home-filtered':
+        return AppSection.home;
+      case '/map':
+        return AppSection.map;
+      case '/search-empty':
+      case '/search-active':
+        return AppSection.search;
+      case '/favorites':
+      case '/favorites-empty':
+        return AppSection.favorites;
+      case '/profile':
+        return AppSection.profile;
+      case '/restaurant-detail':
+      case '/reviews':
+      case '/write-review':
+      case '/compare-restaurants':
+        return AppSection.detail;
+      default:
+        return null;
+    }
+  }
+
+  String _normalizeRouteName(String? routeName) {
+    if (routeName == null || routeName.trim().isEmpty) {
+      return 'unknown';
+    }
+    return routeName.replaceAll('/', '').replaceAll('-', '_');
   }
 
   Future<void> setUser({
@@ -90,18 +127,52 @@ class AnalyticsService {
         'timestamp': DateTime.now().millisecondsSinceEpoch,
       },
     );
+
+    unawaited(
+      SectionUsageService.instance.recordSectionView(section.name),
+    );
   }
 
   Future<void> logSectionInteraction({
     required AppSection section,
     required String action,
     String? userId,
+    Map<String, Object>? additionalParameters,
   }) async {
     await _analytics.logEvent(
       name: 'section_interaction',
       parameters: {
         'section': section.name,
         'action': action,
+        if (userId != null) 'user_id': userId,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+        ...?additionalParameters,
+      },
+    );
+
+    unawaited(
+      SectionUsageService.instance.recordSectionInteraction(
+        section: section.name,
+        action: action,
+      ),
+    );
+  }
+
+  Future<void> logNavigationFlow({
+    required String destinationRoute,
+    String? sourceRoute,
+    String? userId,
+  }) async {
+    final fromSection = sectionFromRouteName(sourceRoute);
+    final toSection = sectionFromRouteName(destinationRoute);
+
+    await _analytics.logEvent(
+      name: 'screen_navigation_flow',
+      parameters: {
+        'from_route': _normalizeRouteName(sourceRoute),
+        'to_route': _normalizeRouteName(destinationRoute),
+        if (fromSection != null) 'from_section': fromSection.name,
+        if (toSection != null) 'to_section': toSection.name,
         if (userId != null) 'user_id': userId,
         'timestamp': DateTime.now().millisecondsSinceEpoch,
       },
@@ -125,7 +196,6 @@ class AnalyticsService {
       },
     );
   }
-
 
   Future<void> logRestaurantFavorited({
     required String restaurantId,
@@ -251,5 +321,41 @@ class AnalyticsService {
         'timestamp': DateTime.now().millisecondsSinceEpoch,
       },
     );
+  }
+}
+
+class AppNavigationObserver extends NavigatorObserver {
+  void _trackNavigation(
+    Route<dynamic>? route,
+    Route<dynamic>? previousRoute,
+  ) {
+    final destinationRoute = route?.settings.name;
+    final sourceRoute = previousRoute?.settings.name;
+
+    if (destinationRoute == null || destinationRoute == sourceRoute) {
+      return;
+    }
+
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+
+    unawaited(
+      AnalyticsService.instance.logNavigationFlow(
+        sourceRoute: sourceRoute,
+        destinationRoute: destinationRoute,
+        userId: userId,
+      ),
+    );
+  }
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    super.didPush(route, previousRoute);
+    _trackNavigation(route, previousRoute);
+  }
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
+    super.didReplace(newRoute: newRoute, oldRoute: oldRoute);
+    _trackNavigation(newRoute, oldRoute);
   }
 }

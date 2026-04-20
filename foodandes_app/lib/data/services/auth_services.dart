@@ -12,8 +12,6 @@ class AuthServices {
 
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
-  // ─── Email / Password ──────────────────────────────────────────────────────
-
   Future<UserCredential> login({
     required String email,
     required String password,
@@ -23,8 +21,6 @@ class AuthServices {
       password: password,
     );
 
-    // FIX #4: era unawaited → silenciosamente fallaba y dejaba el doc desactualizado.
-    // Para login el doc ya existe, pero actualizamos lastLoginAt de forma confiable.
     await _ensureUserDocument(
       user: credential.user,
       fallbackName: credential.user?.displayName,
@@ -44,11 +40,14 @@ class AuthServices {
       password: password,
     );
 
-    // FIX: await obligatorio — el doc DEBE existir antes de ir a HomeScreen
-    // porque Firestore Rules y UserService dependen de él.
+    final safeName = name.trim();
+    if (credential.user != null && safeName.isNotEmpty) {
+      await credential.user!.updateDisplayName(safeName);
+    }
+
     await _ensureUserDocument(
       user: credential.user,
-      fallbackName: name,
+      fallbackName: safeName,
       isNewUser: true,
     );
 
@@ -59,11 +58,9 @@ class AuthServices {
     await _auth.sendPasswordResetEmail(email: email.trim().toLowerCase());
   }
 
-  // ─── Google Sign-In ────────────────────────────────────────────────────────
-
   Future<UserCredential?> signInWithGoogle() async {
     final googleUser = await _googleSignIn.signIn();
-    if (googleUser == null) return null; // usuario canceló
+    if (googleUser == null) return null;
 
     final googleAuth = await googleUser.authentication;
 
@@ -74,27 +71,21 @@ class AuthServices {
 
     final userCredential = await _auth.signInWithCredential(oauthCredential);
 
-    // FIX #1: era unawaited → el documento nunca se creaba (o se creaba después
-    // de que HomeScreen ya intentaba leerlo). Ahora se espera explícitamente
-    // antes de retornar, garantizando que el doc existe cuando se navega.
     await _ensureUserDocument(
       user: userCredential.user,
       fallbackName: googleUser.displayName,
       isNewUser: userCredential.additionalUserInfo?.isNewUser ?? false,
+      additionalUserInfo: userCredential.additionalUserInfo,
+      googleAccount: googleUser,
     );
 
     return userCredential;
   }
 
-  // ─── Sign Out ──────────────────────────────────────────────────────────────
-
   Future<void> logout() async {
-    // Cerrar sesión de Google también para que el picker vuelva a aparecer.
     await _googleSignIn.signOut();
     await _auth.signOut();
   }
-
-  // ─── Sync (llamado por pantallas que necesitan doc actualizado) ────────────
 
   Future<void> syncCurrentUserDocument() async {
     final user = _auth.currentUser;
@@ -106,45 +97,68 @@ class AuthServices {
     );
   }
 
-  // ─── Internal ──────────────────────────────────────────────────────────────
-
   Future<void> _ensureUserDocument({
     required User? user,
     String? fallbackName,
     required bool isNewUser,
+    AdditionalUserInfo? additionalUserInfo,
+    GoogleSignInAccount? googleAccount,
   }) async {
     if (user == null) return;
 
     final userRef = _firestore.collection('users').doc(user.uid);
-
-    final resolvedName =
-        (fallbackName ?? user.displayName ?? '').toString().trim();
-    final safeName = resolvedName.isNotEmpty
-        ? resolvedName
-        : (user.email?.split('@').first ?? 'User');
+    final normalizedEmail = (user.email ?? '').trim().toLowerCase();
+    final profileData = additionalUserInfo?.profile;
+    final resolvedName = _resolveDisplayName(
+      user: user,
+      fallbackName: fallbackName,
+      googleAccount: googleAccount,
+      profileData: profileData,
+      normalizedEmail: normalizedEmail,
+    );
+    final resolvedPhotoUrl = _resolvePhotoUrl(
+      user: user,
+      googleAccount: googleAccount,
+      profileData: profileData,
+    );
+    final providerIds = user.providerData
+        .map((provider) => provider.providerId)
+        .where((providerId) => providerId.isNotEmpty)
+        .toSet()
+        .toList();
+    final authProvider = _resolvePrimaryProvider(user);
+    final nameParts = _extractNameParts(resolvedName);
 
     final payload = <String, dynamic>{
-      'name': safeName,
-      'email': user.email ?? '',
+      'name': resolvedName,
+      'firstName': nameParts['firstName'],
+      'lastName': nameParts['lastName'],
+      'email': normalizedEmail,
+      'normalizedEmail': normalizedEmail,
+      'photoURL': resolvedPhotoUrl,
+      'emailVerified': user.emailVerified,
+      'providerIds': providerIds,
+      'authProvider': authProvider,
+      'lastSignInProvider': authProvider,
       'lastLoginAt': DateTime.now().millisecondsSinceEpoch,
-      'authProvider': user.providerData.isNotEmpty
-          ? user.providerData.first.providerId
-          : 'password',
+      'updatedAt': DateTime.now().millisecondsSinceEpoch,
+      'updatedAtServer': FieldValue.serverTimestamp(),
     };
 
-    // Campos que solo se escriben la primera vez
     if (isNewUser) {
       payload.addAll({
         'favoriteRestaurants': <String>[],
         'dietaryPreferences': <String>[],
         'createdAt': DateTime.now().millisecondsSinceEpoch,
+        'createdAtServer': FieldValue.serverTimestamp(),
       });
     } else {
-      // Para usuarios existentes nos aseguramos de que favoriteRestaurants
-      // siempre esté presente (puede faltar en cuentas muy antiguas).
       final snap = await userRef.get();
       if (snap.exists && snap.data()?['favoriteRestaurants'] == null) {
         payload['favoriteRestaurants'] = <String>[];
+      }
+      if (snap.exists && snap.data()?['dietaryPreferences'] == null) {
+        payload['dietaryPreferences'] = <String>[];
       }
     }
 
@@ -155,8 +169,98 @@ class AuthServices {
       debugPrint('USER DOC SYNC OK -> ${user.uid}');
     } catch (e) {
       debugPrint('USER DOC SYNC ERROR -> $e');
-      // No relanzamos: el login igual continúa; Firestore offline cache
-      // garantizará los datos en el próximo sync.
     }
+  }
+
+  String _resolveDisplayName({
+    required User user,
+    String? fallbackName,
+    GoogleSignInAccount? googleAccount,
+    Map<String, dynamic>? profileData,
+    required String normalizedEmail,
+  }) {
+    final rawName = (fallbackName ??
+            user.displayName ??
+            googleAccount?.displayName ??
+            _asString(profileData?['name']) ??
+            _asString(profileData?['given_name']) ??
+            '')
+        .trim();
+
+    if (rawName.isNotEmpty) {
+      return rawName;
+    }
+
+    if (normalizedEmail.isNotEmpty) {
+      return normalizedEmail.split('@').first;
+    }
+
+    return 'User';
+  }
+
+  String _resolvePhotoUrl({
+    required User user,
+    GoogleSignInAccount? googleAccount,
+    Map<String, dynamic>? profileData,
+  }) {
+    return (googleAccount?.photoUrl ??
+            user.photoURL ??
+            _asString(profileData?['picture']) ??
+            '')
+        .trim();
+  }
+
+  String _resolvePrimaryProvider(User user) {
+    const knownProviders = ['google.com', 'password'];
+
+    for (final provider in knownProviders) {
+      final match = user.providerData.where(
+        (item) => item.providerId == provider,
+      );
+      if (match.isNotEmpty) return provider;
+    }
+
+    for (final provider in user.providerData) {
+      if (provider.providerId.isNotEmpty) {
+        return provider.providerId;
+      }
+    }
+
+    return 'password';
+  }
+
+  Map<String, String> _extractNameParts(String fullName) {
+    final tokens = fullName
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((token) => token.isNotEmpty)
+        .toList();
+
+    if (tokens.isEmpty) {
+      return {
+        'firstName': '',
+        'lastName': '',
+      };
+    }
+
+    if (tokens.length == 1) {
+      return {
+        'firstName': tokens.first,
+        'lastName': '',
+      };
+    }
+
+    return {
+      'firstName': tokens.first,
+      'lastName': tokens.sublist(1).join(' '),
+    };
+  }
+
+  String? _asString(Object? value) {
+    if (value is String) {
+      final trimmed = value.trim();
+      return trimmed.isEmpty ? null : trimmed;
+    }
+    return null;
   }
 }

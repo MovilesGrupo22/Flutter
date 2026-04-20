@@ -20,6 +20,8 @@ dependencies:
   screen_brightness: ^2.1.7
   # ── NEW: Google Sign-In ──────────────────────────────────────────────────
   google_sign_in: ^6.2.1
+  geolocator: ^14.0.2
+  flutter_compass: ^0.8.1
   cupertino_icons: ^1.0.8
 
 dev_dependencies:

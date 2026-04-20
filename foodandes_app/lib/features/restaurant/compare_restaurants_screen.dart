@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:foodandes_app/core/constants/app_colors.dart';
 import 'package:foodandes_app/data/repositories/restaurant_repository.dart';
 import 'package:foodandes_app/data/services/smart_compare_service.dart';
+import 'package:foodandes_app/data/services/section_usage_service.dart';
+import 'package:foodandes_app/data/services/trending_restaurants_service.dart';
 import 'package:foodandes_app/models/restaurant.dart';
 import 'package:foodandes_app/shared/widgets/open_badge.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -26,6 +28,11 @@ class _CompareRestaurantsScreenState extends State<CompareRestaurantsScreen> {
   Restaurant? _baseRestaurant;
   List<Restaurant> _restaurants = [];
   String? _selectedRestaurantId;
+
+  Map<String, dynamic>? _mostEngagedSection;
+  String? _topTrendingCategory;
+  int _topTrendingCategoryCount = 0;
+  int _topTrendingSampleSize = 0;
 
   bool _isLoading = true;
   String? _error;
@@ -67,12 +74,41 @@ class _CompareRestaurantsScreenState extends State<CompareRestaurantsScreen> {
       final baseRestaurant =
           await _repository.fetchRestaurantById(_baseRestaurantId!);
       final restaurants = await _repository.fetchRestaurants();
+      final mostEngagedSection =
+          await SectionUsageService.instance.getMostEngagedSection();
+      final trendingRestaurants = await TrendingRestaurantsService.instance
+          .getTrendingRestaurants(
+        topN: 5,
+        sourceRestaurants: restaurants,
+      );
+
+      String? topTrendingCategory;
+      int topTrendingCategoryCount = 0;
+      final categoryCounts = <String, int>{};
+
+      for (final restaurant in trendingRestaurants) {
+        final category = restaurant.category.trim();
+        if (category.isEmpty) continue;
+        categoryCounts[category] = (categoryCounts[category] ?? 0) + 1;
+      }
+
+      if (categoryCounts.isNotEmpty) {
+        final winner = categoryCounts.entries.reduce(
+          (best, current) => current.value > best.value ? current : best,
+        );
+        topTrendingCategory = winner.key;
+        topTrendingCategoryCount = winner.value;
+      }
 
       if (!mounted) return;
 
       setState(() {
         _baseRestaurant = baseRestaurant;
         _restaurants = restaurants;
+        _mostEngagedSection = mostEngagedSection;
+        _topTrendingCategory = topTrendingCategory;
+        _topTrendingCategoryCount = topTrendingCategoryCount;
+        _topTrendingSampleSize = trendingRestaurants.length;
         _isLoading = false;
         if (baseRestaurant == null) _error = 'Restaurant not found';
       });
@@ -99,6 +135,35 @@ class _CompareRestaurantsScreenState extends State<CompareRestaurantsScreen> {
       secondaryRestaurantId: selectedRestaurant.id,
       selectionMode: 'manual',
       userId: userId,
+    );
+  }
+
+
+  Future<void> _swapSelectedRestaurants() async {
+    final currentBaseRestaurant = _baseRestaurant;
+    final selectedRestaurant = _restaurantById(_selectedRestaurantId);
+
+    if (currentBaseRestaurant == null || selectedRestaurant == null) {
+      return;
+    }
+
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+
+    setState(() {
+      _baseRestaurant = selectedRestaurant;
+      _baseRestaurantId = selectedRestaurant.id;
+      _selectedRestaurantId = currentBaseRestaurant.id;
+      _compareLogged = false;
+    });
+
+    await AnalyticsService.instance.logSectionInteraction(
+      section: AppSection.detail,
+      action: 'swap_compare_order',
+      userId: userId,
+      additionalParameters: {
+        'left_restaurant_id': selectedRestaurant.id,
+        'right_restaurant_id': currentBaseRestaurant.id,
+      },
     );
   }
 
@@ -170,12 +235,27 @@ class _CompareRestaurantsScreenState extends State<CompareRestaurantsScreen> {
                                 restaurant: _baseRestaurant!,
                               ),
                             ),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 12),
-                              child: Icon(
-                                Icons.compare_arrows,
-                                color: AppColors.primary,
-                                size: 28,
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              child: Column(
+                                children: [
+                                  const SizedBox(height: 84),
+                                  Material(
+                                    color: selectedRestaurant != null
+                                        ? AppColors.primary.withOpacity(0.10)
+                                        : Colors.grey.shade200,
+                                    shape: const CircleBorder(),
+                                    child: IconButton(
+                                      tooltip: 'Swap restaurants',
+                                      onPressed: selectedRestaurant != null
+                                          ? _swapSelectedRestaurants
+                                          : null,
+                                      icon: const Icon(Icons.compare_arrows),
+                                      color: AppColors.primary,
+                                      iconSize: 28,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                             Expanded(
@@ -195,6 +275,15 @@ class _CompareRestaurantsScreenState extends State<CompareRestaurantsScreen> {
                           _SmartVerdictCard(
                             left: _baseRestaurant!,
                             right: selectedRestaurant,
+                          ),
+                          const SizedBox(height: 16),
+                          _CampusContextCard(
+                            left: _baseRestaurant!,
+                            right: selectedRestaurant,
+                            mostEngagedSection: _mostEngagedSection,
+                            topTrendingCategory: _topTrendingCategory,
+                            topTrendingCategoryCount: _topTrendingCategoryCount,
+                            topTrendingSampleSize: _topTrendingSampleSize,
                           ),
                           const SizedBox(height: 24),
                         ],
@@ -550,6 +639,208 @@ class _StrengthsColumn extends StatelessWidget {
                 style: const TextStyle(
                     fontSize: 12, color: AppColors.textPrimary),
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+class _CampusContextCard extends StatelessWidget {
+  final Restaurant left;
+  final Restaurant right;
+  final Map<String, dynamic>? mostEngagedSection;
+  final String? topTrendingCategory;
+  final int topTrendingCategoryCount;
+  final int topTrendingSampleSize;
+
+  const _CampusContextCard({
+    required this.left,
+    required this.right,
+    required this.mostEngagedSection,
+    required this.topTrendingCategory,
+    required this.topTrendingCategoryCount,
+    required this.topTrendingSampleSize,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final insightTiles = <Widget>[];
+
+    final categoryPulse = _buildCategoryPulse();
+    if (categoryPulse != null) {
+      insightTiles.add(categoryPulse);
+    }
+
+    final discoveryFlow = _buildDiscoveryFlow();
+    if (discoveryFlow != null) {
+      if (insightTiles.isNotEmpty) {
+        insightTiles.add(const SizedBox(height: 12));
+      }
+      insightTiles.add(discoveryFlow);
+    }
+
+    if (insightTiles.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: const [
+                Icon(Icons.insights_outlined,
+                    color: AppColors.primary, size: 20),
+                SizedBox(width: 8),
+                Text(
+                  'Campus context',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            ...insightTiles,
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget? _buildCategoryPulse() {
+    final category = topTrendingCategory;
+    if (category == null || category.isEmpty || topTrendingSampleSize == 0) {
+      return null;
+    }
+
+    String headline;
+    if (left.category == category && right.category == category) {
+      headline =
+          'Both options fit the category that is standing out the most on campus right now.';
+    } else if (left.category == category) {
+      headline =
+          '${left.name} aligns more closely with what is currently getting the most attention.';
+    } else if (right.category == category) {
+      headline =
+          '${right.name} aligns more closely with what is currently getting the most attention.';
+    } else {
+      headline =
+          '$category is showing the strongest momentum among restaurants students are checking right now.';
+    }
+
+    final detail =
+        '$topTrendingCategoryCount of the top $topTrendingSampleSize trending restaurants belong to this category.';
+
+    return _ContextInsightTile(
+      icon: Icons.local_fire_department_outlined,
+      title: 'Category pulse',
+      headline: headline,
+      detail: detail,
+    );
+  }
+
+  Widget? _buildDiscoveryFlow() {
+    final sectionName = mostEngagedSection?['section'] as String?;
+    final interactions = mostEngagedSection?['interactionCount'];
+    final views = mostEngagedSection?['viewCount'];
+
+    if (sectionName == null || sectionName.isEmpty) {
+      return null;
+    }
+
+    final prettySection =
+        '${sectionName[0].toUpperCase()}${sectionName.substring(1)}';
+
+    final headline =
+        'Most recent restaurant exploration is still concentrating in $prettySection.';
+    final detail = 'Views: ${views ?? 0} · Interactions: ${interactions ?? 0}';
+
+    return _ContextInsightTile(
+      icon: Icons.explore_outlined,
+      title: 'Discovery flow',
+      headline: headline,
+      detail: detail,
+    );
+  }
+}
+
+class _ContextInsightTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String headline;
+  final String detail;
+
+  const _ContextInsightTile({
+    required this.icon,
+    required this.title,
+    required this.headline,
+    required this.detail,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: AppColors.primary, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  headline,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  detail,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                    height: 1.4,
+                  ),
+                ),
+              ],
             ),
           ),
         ],

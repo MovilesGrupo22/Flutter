@@ -89,12 +89,17 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       final user = credential.user;
+      final isNewUser = credential.additionalUserInfo?.isNewUser ?? false;
 
       if (!mounted) return;
       Navigator.pushReplacementNamed(context, HomeScreen.routeName);
 
       if (user != null) {
-        unawaited(_logSignInAnalytics(user, 'google'));
+        unawaited(
+          isNewUser
+              ? _logSignUpAnalytics(user, 'google')
+              : _logSignInAnalytics(user, 'google'),
+        );
       }
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
@@ -157,6 +162,25 @@ class _LoginScreenState extends State<LoginScreen> {
       );
     } catch (e) {
       debugPrint('SIGN IN ANALYTICS ERROR -> $e');
+    }
+  }
+
+
+  Future<void> _logSignUpAnalytics(User user, String method) async {
+    try {
+      await AnalyticsService.instance.setUser(
+        userId: user.uid,
+        email: user.email,
+      );
+      await AnalyticsService.instance.logSignUp(
+        method: method,
+        userId: user.uid,
+      );
+      await AnalyticsService.instance.logUserSessionStart(
+        userId: user.uid,
+      );
+    } catch (e) {
+      debugPrint('SIGN UP ANALYTICS ERROR -> $e');
     }
   }
 
