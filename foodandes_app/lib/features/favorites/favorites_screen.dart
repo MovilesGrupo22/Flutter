@@ -19,6 +19,19 @@ class FavoritesScreen extends StatefulWidget {
 }
 
 class _FavoritesScreenState extends State<FavoritesScreen> {
+  Future<void> _logFavoritesInteraction(
+    String action, {
+    Map<String, Object>? additionalParameters,
+  }) async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    await AnalyticsService.instance.logSectionInteraction(
+      section: AppSection.favorites,
+      action: action,
+      userId: userId,
+      additionalParameters: additionalParameters,
+    );
+  }
+
   final RestaurantRepository _repository = RestaurantRepository();
 
   late Future<List<Restaurant>> _favoritesFuture;
@@ -47,6 +60,11 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     final willBeFavorite = !restaurant.isFavorite;
 
     await _repository.toggleFavorite(restaurant.id);
+
+    await _logFavoritesInteraction(
+      willBeFavorite ? 'favorite_added' : 'favorite_removed',
+      additionalParameters: {'restaurant_id': restaurant.id},
+    );
 
     if (userId != null) {
       if (willBeFavorite) {
@@ -125,6 +143,10 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                     favoriteFilled: true,
                     onFavoriteTap: () => _toggleFavorite(restaurant),
                     onTap: () async {
+                      await _logFavoritesInteraction(
+                        'open_favorite_restaurant',
+                        additionalParameters: {'restaurant_id': restaurant.id},
+                      );
                       await Navigator.pushNamed(
                         context,
                         RestaurantDetailScreen.routeName,

@@ -25,6 +25,19 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  Future<void> _logHomeInteraction(
+    String action, {
+    Map<String, Object>? additionalParameters,
+  }) async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    await AnalyticsService.instance.logSectionInteraction(
+      section: AppSection.home,
+      action: action,
+      userId: userId,
+      additionalParameters: additionalParameters,
+    );
+  }
+
   final RestaurantRepository _repository = RestaurantRepository();
 
   late Future<List<Restaurant>> _restaurantsFuture;
@@ -70,10 +83,13 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  Future<void> _loadTrendingRestaurants() async {
+  Future<void> _loadTrendingRestaurants({List<Restaurant>? sourceRestaurants}) async {
     try {
       final trending = await TrendingRestaurantsService.instance
-          .getTrendingRestaurants(topN: 5);
+          .getTrendingRestaurants(
+            topN: 5,
+            sourceRestaurants: sourceRestaurants,
+          );
 
       if (!mounted) return;
 
@@ -154,6 +170,35 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+
+  List<Restaurant> _mergeFavoriteState(
+    List<Restaurant> restaurants,
+    List<Restaurant> sourceRestaurants,
+  ) {
+    final sourceById = {
+      for (final restaurant in sourceRestaurants) restaurant.id: restaurant,
+    };
+
+    return restaurants.map((restaurant) {
+      final sourceRestaurant = sourceById[restaurant.id];
+      return sourceRestaurant ?? restaurant;
+    }).toList();
+  }
+
+  void _applyFavoriteStateLocally(String restaurantId, bool isFavorite) {
+    Restaurant updateRestaurant(Restaurant restaurant) {
+      return restaurant.id == restaurantId
+          ? restaurant.copyWith(isFavorite: isFavorite)
+          : restaurant;
+    }
+
+    setState(() {
+      _allRestaurants = _allRestaurants.map(updateRestaurant).toList();
+      _filteredRestaurants = _filteredRestaurants.map(updateRestaurant).toList();
+      _trendingRestaurants = _trendingRestaurants.map(updateRestaurant).toList();
+    });
+  }
+
   void _applyFilters() {
     final mood = CasService.instance.getDiningMood();
 
@@ -195,16 +240,22 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     });
 
-    await _loadTrendingRestaurants();
+    await _loadTrendingRestaurants(sourceRestaurants: restaurants);
   }
 
   Future<void> _toggleFavorite(Restaurant restaurant) async {
     final userId = FirebaseAuth.instance.currentUser?.uid;
     final willBeFavorite = !restaurant.isFavorite;
 
+    _applyFavoriteStateLocally(restaurant.id, willBeFavorite);
     await _repository.toggleFavorite(restaurant.id);
 
     if (userId != null) {
+      await _logHomeInteraction(
+        willBeFavorite ? 'favorite_added' : 'favorite_removed',
+        additionalParameters: {'restaurant_id': restaurant.id},
+      );
+
       if (willBeFavorite) {
         await AnalyticsService.instance.logRestaurantFavorited(
           restaurantId: restaurant.id,
@@ -241,6 +292,14 @@ class _HomeScreenState extends State<HomeScreen> {
       userId: userId,
     );
 
+    await _logHomeInteraction(
+      'filter_used',
+      additionalParameters: {
+        'filter_type': filterType,
+        'filter_value': filterValue,
+      },
+    );
+
     // Contador en Firestore (NUEVO)
     await PopularFiltersService.instance.incrementFilter(
       filterType: filterType,
@@ -256,6 +315,7 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: [
           IconButton(
             onPressed: () async {
+              await _logHomeInteraction('open_search_from_home');
               await Navigator.pushNamed(context, SearchEmptyScreen.routeName);
               await _refreshRestaurants();
             },
@@ -263,6 +323,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           IconButton(
             onPressed: () async {
+              await _logHomeInteraction('open_profile_from_home');
               await Navigator.pushNamed(context, ProfileScreen.routeName);
               await _refreshRestaurants();
             },
@@ -299,6 +360,17 @@ class _HomeScreenState extends State<HomeScreen> {
               filtered,
               mood: mood,
             );
+            _trendingRestaurants = _mergeFavoriteState(
+              _trendingRestaurants,
+              _allRestaurants,
+            );
+
+            if (_isTrendingLoading || _trendingRestaurants.isEmpty) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!mounted) return;
+                _loadTrendingRestaurants(sourceRestaurants: _allRestaurants);
+              });
+            }
           }
 
           final categoryOptions =
@@ -341,7 +413,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 10),
                   SizedBox(
-                    height: 300,
+                    height: 340,
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
                       itemCount: _trendingRestaurants.length,
@@ -353,10 +425,15 @@ class _HomeScreenState extends State<HomeScreen> {
                           width: 280,
                           child: RestaurantCard(
                             restaurant: restaurant,
+                            compact: true,
                             showFavoriteIcon: true,
                             favoriteFilled: restaurant.isFavorite,
                             onFavoriteTap: () => _toggleFavorite(restaurant),
                             onTap: () async {
+                              await _logHomeInteraction(
+                                'open_trending_restaurant',
+                                additionalParameters: {'restaurant_id': restaurant.id},
+                              );
                               await Navigator.pushNamed(
                                 context,
                                 RestaurantDetailScreen.routeName,
@@ -576,6 +653,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         favoriteFilled: restaurant.isFavorite,
                         onFavoriteTap: () => _toggleFavorite(restaurant),
                         onTap: () async {
+                          await _logHomeInteraction(
+                            'open_restaurant_from_home',
+                            additionalParameters: {'restaurant_id': restaurant.id},
+                          );
                           await Navigator.pushNamed(
                             context,
                             RestaurantDetailScreen.routeName,

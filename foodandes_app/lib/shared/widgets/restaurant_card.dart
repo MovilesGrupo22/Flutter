@@ -9,6 +9,7 @@ class RestaurantCard extends StatelessWidget {
   final bool showFavoriteIcon;
   final bool favoriteFilled;
   final VoidCallback? onFavoriteTap;
+  final bool compact;
 
   const RestaurantCard({
     super.key,
@@ -17,15 +18,22 @@ class RestaurantCard extends StatelessWidget {
     this.showFavoriteIcon = false,
     this.favoriteFilled = false,
     this.onFavoriteTap,
+    this.compact = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final titleFontSize = compact ? 18.0 : 22.0;
+    final metadataFontSize = compact ? 13.0 : 14.0;
+    final contentPadding = compact ? 12.0 : 14.0;
+    final bottomPadding = compact ? 12.0 : 16.0;
+
     return GestureDetector(
       onTap: onTap,
       child: Card(
         clipBehavior: Clip.antiAlias,
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Stack(
@@ -64,14 +72,22 @@ class RestaurantCard extends StatelessWidget {
               ],
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
+              padding: EdgeInsets.fromLTRB(
+                contentPadding,
+                contentPadding,
+                contentPadding,
+                bottomPadding,
+              ),
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     restaurant.name,
-                    style: const TextStyle(
-                      fontSize: 22,
+                    maxLines: compact ? 2 : 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: titleFontSize,
                       fontWeight: FontWeight.w700,
                       color: AppColors.textPrimary,
                     ),
@@ -79,12 +95,14 @@ class RestaurantCard extends StatelessWidget {
                   const SizedBox(height: 6),
                   Text(
                     '${restaurant.category}  •  ⭐ ${restaurant.rating}  •  ${restaurant.priceRange}',
-                    style: const TextStyle(
-                      fontSize: 14,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: metadataFontSize,
                       color: AppColors.textSecondary,
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   OpenBadge(isOpen: restaurant.isOpen),
                 ],
               ),

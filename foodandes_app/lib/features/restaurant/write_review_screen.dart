@@ -100,51 +100,66 @@ class _WriteReviewScreenState extends State<WriteReviewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Write a Review'),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              _restaurantName ?? 'Restaurant',
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: EdgeInsets.fromLTRB(18, 18, 18, 18 + bottomInset),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _restaurantName ?? 'Restaurant',
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            ),
-            const SizedBox(height: 18),
-            const Text(
-              'Your rating',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-            ),
-            Row(
-              children: List.generate(5, (index) => _buildStar(index + 1)),
-            ),
-            const SizedBox(height: 18),
-            TextField(
-              controller: _commentController,
-              maxLines: 5,
-              decoration: const InputDecoration(
-                hintText: 'Write your review here...',
-                alignLabelWithHint: true,
+              const SizedBox(height: 18),
+              const Text(
+                'Your rating',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
               ),
-            ),
-            const SizedBox(height: 24),
-            FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                minimumSize: const Size.fromHeight(52),
+              Wrap(
+                children: List.generate(5, (index) => _buildStar(index + 1)),
               ),
-              onPressed: _isLoading ? null : _submitReview,
-              child: _isLoading
-                  ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text('Submit Review'),
-            ),
-          ],
+              const SizedBox(height: 18),
+              TextField(
+                controller: _commentController,
+                maxLines: 5,
+                decoration: const InputDecoration(
+                  hintText: 'Write your review here...',
+                  alignLabelWithHint: true,
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    minimumSize: const Size.fromHeight(52),
+                  ),
+                  onPressed: _isLoading ? null : _submitReview,
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2.5,
+                          ),
+                        )
+                      : const Text('Submit Review'),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
