@@ -12,7 +12,20 @@
           "package_name": "com.example.foodandes_app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "994016422490-24o4jnompd85h9i8jhv4guuigmcm69me.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.foodandes_app",
+            "certificate_hash": "d6445b461d38e5851ce5304e999b48b4e552f44a"
+          }
+        },
+        {
+          "client_id": "994016422490-h9gelll1f6onamlgnft149g4kruhbhdc.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyALLe_Dqc5iQX5ULfh4wBesoAmcq1VuadI"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "994016422490-h9gelll1f6onamlgnft149g4kruhbhdc.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "994016422490-bprf9i83nulhpq6rldem7ca6et03g6cq.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.foodandesApp"
+              }
+            }
+          ]
         }
       }
     },
@@ -31,7 +56,12 @@
           "package_name": "com.restaurandes"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "994016422490-h9gelll1f6onamlgnft149g4kruhbhdc.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyALLe_Dqc5iQX5ULfh4wBesoAmcq1VuadI"
@@ -39,7 +69,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "994016422490-h9gelll1f6onamlgnft149g4kruhbhdc.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "994016422490-bprf9i83nulhpq6rldem7ca6et03g6cq.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.foodandesApp"
+              }
+            }
+          ]
         }
       }
     }

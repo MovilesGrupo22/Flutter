@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:foodandes_app/core/constants/app_colors.dart';
 import 'package:foodandes_app/data/repositories/restaurant_repository.dart';
+import 'package:foodandes_app/data/services/smart_compare_service.dart';
 import 'package:foodandes_app/models/restaurant.dart';
 import 'package:foodandes_app/shared/widgets/open_badge.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:foodandes_app/data/services/analytics_service.dart';
-
 
 class CompareRestaurantsScreen extends StatefulWidget {
   static const String routeName = '/compare-restaurants';
@@ -20,7 +20,7 @@ class CompareRestaurantsScreen extends StatefulWidget {
 class _CompareRestaurantsScreenState extends State<CompareRestaurantsScreen> {
   final RestaurantRepository _repository = RestaurantRepository();
   final TextEditingController _searchController = TextEditingController();
-  
+
   bool _compareLogged = false;
   String? _baseRestaurantId;
   Restaurant? _baseRestaurant;
@@ -33,16 +33,15 @@ class _CompareRestaurantsScreenState extends State<CompareRestaurantsScreen> {
   @override
   void initState() {
     super.initState();
-    _searchController.addListener(() {
-      setState(() {});
-    });
+    _searchController.addListener(() => setState(() {}));
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    final restaurantId = ModalRoute.of(context)?.settings.arguments as String?;
+    final restaurantId =
+        ModalRoute.of(context)?.settings.arguments as String?;
 
     if (restaurantId != null && restaurantId != _baseRestaurantId) {
       _baseRestaurantId = restaurantId;
@@ -75,13 +74,10 @@ class _CompareRestaurantsScreenState extends State<CompareRestaurantsScreen> {
         _baseRestaurant = baseRestaurant;
         _restaurants = restaurants;
         _isLoading = false;
-        if (baseRestaurant == null) {
-          _error = 'Restaurant not found';
-        }
+        if (baseRestaurant == null) _error = 'Restaurant not found';
       });
     } catch (e) {
       if (!mounted) return;
-
       setState(() {
         _error = 'Error loading restaurants: $e';
         _isLoading = false;
@@ -94,7 +90,6 @@ class _CompareRestaurantsScreenState extends State<CompareRestaurantsScreen> {
     required Restaurant selectedRestaurant,
   }) async {
     if (_compareLogged) return;
-
     _compareLogged = true;
 
     final userId = FirebaseAuth.instance.currentUser?.uid;
@@ -109,9 +104,8 @@ class _CompareRestaurantsScreenState extends State<CompareRestaurantsScreen> {
 
   Restaurant? _restaurantById(String? id) {
     if (id == null) return null;
-
-    for (final restaurant in _restaurants) {
-      if (restaurant.id == id) return restaurant;
+    for (final r in _restaurants) {
+      if (r.id == id) return r;
     }
     return null;
   }
@@ -121,15 +115,13 @@ class _CompareRestaurantsScreenState extends State<CompareRestaurantsScreen> {
         _restaurants.where((r) => r.id != _baseRestaurantId).toList();
 
     final query = _searchController.text.trim().toLowerCase();
-
     if (query.isEmpty) return candidates;
 
-    return candidates.where((restaurant) {
-      final tags = restaurant.tags.join(' ').toLowerCase();
-
-      return restaurant.name.toLowerCase().contains(query) ||
-          restaurant.category.toLowerCase().contains(query) ||
-          restaurant.address.toLowerCase().contains(query) ||
+    return candidates.where((r) {
+      final tags = r.tags.join(' ').toLowerCase();
+      return r.name.toLowerCase().contains(query) ||
+          r.category.toLowerCase().contains(query) ||
+          r.address.toLowerCase().contains(query) ||
           tags.contains(query);
     }).toList();
   }
@@ -148,9 +140,7 @@ class _CompareRestaurantsScreenState extends State<CompareRestaurantsScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Compare restaurants'),
-      ),
+      appBar: AppBar(title: const Text('Compare restaurants')),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
@@ -161,13 +151,16 @@ class _CompareRestaurantsScreenState extends State<CompareRestaurantsScreen> {
                       padding: const EdgeInsets.all(16),
                       children: [
                         Text(
-                          'Choose another restaurant to compare with ${_baseRestaurant!.name}.',
+                          'Choose another restaurant to compare with '
+                          '${_baseRestaurant!.name}.',
                           style: const TextStyle(
                             fontSize: 16,
                             color: AppColors.textSecondary,
                           ),
                         ),
                         const SizedBox(height: 16),
+
+                        // ── Selected pair ──────────────────────────────────
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -196,6 +189,17 @@ class _CompareRestaurantsScreenState extends State<CompareRestaurantsScreen> {
                           ],
                         ),
                         const SizedBox(height: 24),
+
+                        // ── Smart Verdict ──────────────────────────────────
+                        if (selectedRestaurant != null) ...[
+                          _SmartVerdictCard(
+                            left: _baseRestaurant!,
+                            right: selectedRestaurant,
+                          ),
+                          const SizedBox(height: 24),
+                        ],
+
+                        // ── Search ─────────────────────────────────────────
                         TextField(
                           controller: _searchController,
                           decoration: const InputDecoration(
@@ -204,6 +208,7 @@ class _CompareRestaurantsScreenState extends State<CompareRestaurantsScreen> {
                           ),
                         ),
                         const SizedBox(height: 20),
+
                         const Text(
                           'Available restaurants',
                           style: TextStyle(
@@ -213,6 +218,7 @@ class _CompareRestaurantsScreenState extends State<CompareRestaurantsScreen> {
                           ),
                         ),
                         const SizedBox(height: 12),
+
                         if (_filteredRestaurants.isEmpty)
                           const Padding(
                             padding: EdgeInsets.symmetric(vertical: 24),
@@ -226,21 +232,20 @@ class _CompareRestaurantsScreenState extends State<CompareRestaurantsScreen> {
                               padding: const EdgeInsets.only(bottom: 12),
                               child: _RestaurantSelectionCard(
                                 restaurant: restaurant,
-                                selected:
-                                    restaurant.id == _selectedRestaurantId,
-                                onTap: () {
-                                  setState(() {
-                                    _selectedRestaurantId = restaurant.id;
-                                    _compareLogged = false;
-                                  });
-                                },
+                                selected: restaurant.id == _selectedRestaurantId,
+                                onTap: () => setState(() {
+                                  _selectedRestaurantId = restaurant.id;
+                                  _compareLogged = false;
+                                }),
                               ),
                             ),
                           ),
+
+                        // ── Metric table ───────────────────────────────────
                         if (selectedRestaurant != null) ...[
                           const SizedBox(height: 24),
                           const Text(
-                            'Comparison summary',
+                            'Side-by-side details',
                             style: TextStyle(
                               fontSize: 22,
                               fontWeight: FontWeight.w700,
@@ -269,6 +274,9 @@ class _CompareRestaurantsScreenState extends State<CompareRestaurantsScreen> {
                                         '${_baseRestaurant!.rating.toStringAsFixed(1)} ⭐',
                                     rightValue:
                                         '${selectedRestaurant.rating.toStringAsFixed(1)} ⭐',
+                                    highlightBetter: true,
+                                    leftIsHigher: _baseRestaurant!.rating >=
+                                        selectedRestaurant.rating,
                                   ),
                                   _CompareMetricRow(
                                     label: 'Reviews',
@@ -276,6 +284,10 @@ class _CompareRestaurantsScreenState extends State<CompareRestaurantsScreen> {
                                         _baseRestaurant!.reviewCount.toString(),
                                     rightValue:
                                         selectedRestaurant.reviewCount.toString(),
+                                    highlightBetter: true,
+                                    leftIsHigher:
+                                        _baseRestaurant!.reviewCount >=
+                                            selectedRestaurant.reviewCount,
                                   ),
                                   _CompareMetricRow(
                                     label: 'Open now',
@@ -315,6 +327,239 @@ class _CompareRestaurantsScreenState extends State<CompareRestaurantsScreen> {
   }
 }
 
+// ─── Smart Verdict Card ──────────────────────────────────────────────────────
+
+class _SmartVerdictCard extends StatelessWidget {
+  final Restaurant left;
+  final Restaurant right;
+
+  const _SmartVerdictCard({required this.left, required this.right});
+
+  @override
+  Widget build(BuildContext context) {
+    final result = SmartCompareService.instance.compare(left, right);
+
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      color: AppColors.primary.withOpacity(0.06),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Header ──────────────────────────────────────────────────────
+            Row(
+              children: [
+                const Icon(Icons.auto_awesome,
+                    color: AppColors.primary, size: 20),
+                const SizedBox(width: 8),
+                const Text(
+                  'Smart Verdict',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // ── Score bars ───────────────────────────────────────────────────
+            _ScoreBar(
+              label: left.name,
+              score: result.leftScore,
+              isWinner: result.winner == 'left',
+            ),
+            const SizedBox(height: 10),
+            _ScoreBar(
+              label: right.name,
+              score: result.rightScore,
+              isWinner: result.winner == 'right',
+            ),
+            const SizedBox(height: 16),
+
+            // ── Verdict text ─────────────────────────────────────────────────
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Text(
+                result.verdict,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: AppColors.textPrimary,
+                  height: 1.5,
+                ),
+              ),
+            ),
+
+            // ── Strengths ────────────────────────────────────────────────────
+            if (result.leftStrengths.isNotEmpty ||
+                result.rightStrengths.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (result.leftStrengths.isNotEmpty)
+                    Expanded(
+                      child: _StrengthsColumn(
+                        name: left.name,
+                        strengths: result.leftStrengths,
+                        highlight: result.winner == 'left',
+                      ),
+                    ),
+                  if (result.leftStrengths.isNotEmpty &&
+                      result.rightStrengths.isNotEmpty)
+                    const SizedBox(width: 12),
+                  if (result.rightStrengths.isNotEmpty)
+                    Expanded(
+                      child: _StrengthsColumn(
+                        name: right.name,
+                        strengths: result.rightStrengths,
+                        highlight: result.winner == 'right',
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ScoreBar extends StatelessWidget {
+  final String label;
+  final double score;
+  final bool isWinner;
+
+  const _ScoreBar({
+    required this.label,
+    required this.score,
+    required this.isWinner,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight:
+                      isWinner ? FontWeight.w700 : FontWeight.w500,
+                  color: isWinner
+                      ? AppColors.primary
+                      : AppColors.textSecondary,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Row(
+              children: [
+                if (isWinner) ...[
+                  const Icon(Icons.emoji_events,
+                      size: 15, color: AppColors.primary),
+                  const SizedBox(width: 4),
+                ],
+                Text(
+                  '${score.toStringAsFixed(0)}/100',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: isWinner
+                        ? AppColors.primary
+                        : AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: LinearProgressIndicator(
+            value: score / 100,
+            minHeight: 10,
+            backgroundColor: AppColors.border,
+            color: isWinner ? AppColors.primary : AppColors.textSecondary,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StrengthsColumn extends StatelessWidget {
+  final String name;
+  final List<String> strengths;
+  final bool highlight;
+
+  const _StrengthsColumn({
+    required this.name,
+    required this.strengths,
+    required this.highlight,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: highlight
+            ? AppColors.primary.withOpacity(0.08)
+            : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: highlight
+              ? AppColors.primary.withOpacity(0.25)
+              : AppColors.border,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            name,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color:
+                  highlight ? AppColors.primary : AppColors.textSecondary,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 6),
+          ...strengths.map(
+            (s) => Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(
+                s,
+                style: const TextStyle(
+                    fontSize: 12, color: AppColors.textPrimary),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Existing widgets (unchanged) ────────────────────────────────────────────
+
 class _SelectedRestaurantCard extends StatelessWidget {
   final String title;
   final Restaurant restaurant;
@@ -352,8 +597,7 @@ class _SelectedRestaurantCard extends StatelessWidget {
                   height: 120,
                   color: Colors.grey.shade300,
                   child: const Center(
-                    child: Icon(Icons.image_not_supported),
-                  ),
+                      child: Icon(Icons.image_not_supported)),
                 ),
               ),
             ),
@@ -369,9 +613,7 @@ class _SelectedRestaurantCard extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               '${restaurant.category} • ${restaurant.priceRange}',
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-              ),
+              style: const TextStyle(color: AppColors.textSecondary),
             ),
             const SizedBox(height: 8),
             OpenBadge(isOpen: restaurant.isOpen),
@@ -395,11 +637,8 @@ class _EmptySelectionCard extends StatelessWidget {
         child: const Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.restaurant_outlined,
-              size: 36,
-              color: AppColors.textSecondary,
-            ),
+            Icon(Icons.restaurant_outlined,
+                size: 36, color: AppColors.textSecondary),
             SizedBox(height: 10),
             Text(
               'Choose a restaurant to compare',
@@ -467,23 +706,20 @@ class _RestaurantSelectionCard extends StatelessWidget {
                     Text(
                       restaurant.name,
                       style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                      ),
+                          fontSize: 17, fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       '${restaurant.category} • ${restaurant.priceRange}',
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                      ),
+                      style:
+                          const TextStyle(color: AppColors.textSecondary),
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      '⭐ ${restaurant.rating.toStringAsFixed(1)} • ${restaurant.reviewCount} reviews',
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                      ),
+                      '⭐ ${restaurant.rating.toStringAsFixed(1)} • '
+                      '${restaurant.reviewCount} reviews',
+                      style:
+                          const TextStyle(color: AppColors.textSecondary),
                     ),
                   ],
                 ),
@@ -493,7 +729,9 @@ class _RestaurantSelectionCard extends StatelessWidget {
                 selected
                     ? Icons.check_circle
                     : Icons.radio_button_unchecked,
-                color: selected ? AppColors.primary : AppColors.textSecondary,
+                color: selected
+                    ? AppColors.primary
+                    : AppColors.textSecondary,
               ),
             ],
           ),
@@ -508,12 +746,16 @@ class _CompareMetricRow extends StatelessWidget {
   final String leftValue;
   final String rightValue;
   final bool isLast;
+  final bool highlightBetter;
+  final bool leftIsHigher;
 
   const _CompareMetricRow({
     required this.label,
     required this.leftValue,
     required this.rightValue,
     this.isLast = false,
+    this.highlightBetter = false,
+    this.leftIsHigher = false,
   });
 
   @override
@@ -531,11 +773,17 @@ class _CompareMetricRow extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: _MetricValueCard(value: leftValue),
+              child: _MetricValueCard(
+                value: leftValue,
+                highlight: highlightBetter && leftIsHigher,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _MetricValueCard(value: rightValue),
+              child: _MetricValueCard(
+                value: rightValue,
+                highlight: highlightBetter && !leftIsHigher,
+              ),
             ),
           ],
         ),
@@ -551,25 +799,30 @@ class _CompareMetricRow extends StatelessWidget {
 
 class _MetricValueCard extends StatelessWidget {
   final String value;
+  final bool highlight;
 
-  const _MetricValueCard({
-    required this.value,
-  });
+  const _MetricValueCard({required this.value, this.highlight = false});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.background,
+        color: highlight
+            ? AppColors.primary.withOpacity(0.08)
+            : AppColors.background,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(
+          color:
+              highlight ? AppColors.primary.withOpacity(0.4) : AppColors.border,
+        ),
       ),
       child: Text(
         value,
         textAlign: TextAlign.center,
-        style: const TextStyle(
-          color: AppColors.textPrimary,
+        style: TextStyle(
+          color:
+              highlight ? AppColors.primary : AppColors.textPrimary,
           fontWeight: FontWeight.w600,
         ),
       ),
