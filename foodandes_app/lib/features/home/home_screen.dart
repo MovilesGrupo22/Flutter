@@ -12,6 +12,7 @@ import 'package:foodandes_app/data/services/popular_filters_service.dart';
 import 'package:foodandes_app/data/services/cas_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:foodandes_app/data/services/trending_restaurants_service.dart';
+import 'package:foodandes_app/features/home/widgets/cas_dining_banner.dart';
 import 'dart:async';
 
 class HomeScreen extends StatefulWidget {
@@ -100,24 +101,29 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _updateCasContext() {
-    final message = CasService.instance.getContextMessage();
-    final isMealTime = CasService.instance.isMealTime();
+    final mood = CasService.instance.getDiningMood();
+    final message = '${mood.emoji} ${mood.title} — ${mood.subtitle}';
 
     if (!mounted) return;
 
+    var shouldRefilter = false;
+
     setState(() {
       _casContextMessage = message;
-      // Auto-enable Open filter during meal hours, disable outside of them
-      if (isMealTime && !_casAutoOpenEnabled) {
+      if (mood.autoFilterOpen && !_casAutoOpenEnabled) {
         _casAutoOpenEnabled = true;
         _onlyOpen = true;
-        _applyFilters();
-      } else if (!isMealTime && _casAutoOpenEnabled) {
+        shouldRefilter = true;
+      } else if (!mood.autoFilterOpen && _casAutoOpenEnabled) {
         _casAutoOpenEnabled = false;
         _onlyOpen = false;
-        _applyFilters();
+        shouldRefilter = true;
       }
     });
+
+    if (shouldRefilter) {
+      _applyFilters();
+    }
   }
 
   @override
@@ -149,13 +155,20 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _applyFilters() {
+    final mood = CasService.instance.getDiningMood();
+
     setState(() {
-      _filteredRestaurants = _repository.filterRestaurants(
+      final filtered = _repository.filterRestaurants(
         restaurants: _allRestaurants,
         selectedCategory: _selectedCategory,
         onlyOpen: _onlyOpen,
         onlyTopRated: _onlyTopRated,
         selectedPriceRange: _selectedPriceRange,
+      );
+
+      _filteredRestaurants = CasService.instance.rankByMoodRelevance(
+        filtered,
+        mood: mood,
       );
     });
   }
@@ -165,14 +178,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (!mounted) return;
 
+    final mood = CasService.instance.getDiningMood();
+
     setState(() {
       _allRestaurants = restaurants;
-      _filteredRestaurants = _repository.filterRestaurants(
+      final filtered = _repository.filterRestaurants(
         restaurants: _allRestaurants,
         selectedCategory: _selectedCategory,
         onlyOpen: _onlyOpen,
         onlyTopRated: _onlyTopRated,
         selectedPriceRange: _selectedPriceRange,
+      );
+      _filteredRestaurants = CasService.instance.rankByMoodRelevance(
+        filtered,
+        mood: mood,
       );
     });
 
@@ -267,13 +286,18 @@ class _HomeScreenState extends State<HomeScreen> {
           }
 
           if (_allRestaurants.isEmpty && snapshot.hasData) {
+            final mood = CasService.instance.getDiningMood();
             _allRestaurants = snapshot.data ?? [];
-            _filteredRestaurants = _repository.filterRestaurants(
+            final filtered = _repository.filterRestaurants(
               restaurants: _allRestaurants,
               selectedCategory: _selectedCategory,
               onlyOpen: _onlyOpen,
               onlyTopRated: _onlyTopRated,
               selectedPriceRange: _selectedPriceRange,
+            );
+            _filteredRestaurants = CasService.instance.rankByMoodRelevance(
+              filtered,
+              mood: mood,
             );
           }
 
@@ -293,58 +317,16 @@ class _HomeScreenState extends State<HomeScreen> {
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                // --- CAS: banner de contexto por hora ---
-                if (_casContextMessage.isNotEmpty)
-                  Container(
-                    width: double.infinity,
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: _casAutoOpenEnabled
-                          ? Colors.green.shade50
-                          : Colors.blue.shade50,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: _casAutoOpenEnabled
-                            ? Colors.green.shade200
-                            : Colors.blue.shade200,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            _casContextMessage,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: _casAutoOpenEnabled
-                                  ? Colors.green.shade800
-                                  : Colors.blue.shade800,
-                            ),
-                          ),
-                        ),
-                        if (_casAutoOpenEnabled)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: Colors.green.shade100,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              'Open filter: ON',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.green.shade800,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                // --- FIN banner CAS ---
+                CasDiningBanner(
+                  onCategoryTap: (category) async {
+                    _selectedCategory = category;
+                    _applyFilters();
+                    await _logFilter(
+                      filterType: 'category',
+                      filterValue: category,
+                    );
+                  },
+                ),
                 if (_isTrendingLoading) ...[
                   const SizedBox(height: 8),
                   const Center(child: CircularProgressIndicator()),

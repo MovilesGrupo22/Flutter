@@ -3,9 +3,11 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  ambient_light
   cloud_firestore
   firebase_auth
   firebase_core
+  screen_brightness_windows
   url_launcher_windows
 )
 
