@@ -187,7 +187,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      '${restaurant.category} • ${restaurant.priceRange} • ⭐ ${restaurant.rating} (${restaurant.reviewCount})',
+                      '${restaurant.category} • ${restaurant.priceRange} • ⭐ ${restaurant.rating.toStringAsFixed(2)} (${restaurant.reviewCount})',
                       style: const TextStyle(
                         fontSize: 16,
                         color: AppColors.textSecondary,

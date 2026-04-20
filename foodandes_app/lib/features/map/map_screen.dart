@@ -631,7 +631,7 @@ class _MapCardDetails extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          '⭐ ${restaurant.rating.toStringAsFixed(1)} • ${restaurant.reviewCount} reviews',
+          '⭐ ${restaurant.rating.toStringAsFixed(2)} • ${restaurant.reviewCount} reviews',
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(

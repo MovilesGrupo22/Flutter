@@ -147,7 +147,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          '⭐ ${average.toStringAsFixed(1)} (${reviews.length} reviews)',
+                          '⭐ ${average.toStringAsFixed(2)} (${reviews.length} reviews)',
                           style: const TextStyle(
                             fontSize: 16,
                             color: AppColors.textSecondary,

@@ -360,9 +360,9 @@ class _CompareRestaurantsScreenState extends State<CompareRestaurantsScreen> {
                                   _CompareMetricRow(
                                     label: 'Rating',
                                     leftValue:
-                                        '${_baseRestaurant!.rating.toStringAsFixed(1)} ⭐',
+                                        '${_baseRestaurant!.rating.toStringAsFixed(2)} ⭐',
                                     rightValue:
-                                        '${selectedRestaurant.rating.toStringAsFixed(1)} ⭐',
+                                        '${selectedRestaurant.rating.toStringAsFixed(2)} ⭐',
                                     highlightBetter: true,
                                     leftIsHigher: _baseRestaurant!.rating >=
                                         selectedRestaurant.rating,
@@ -1007,7 +1007,7 @@ class _RestaurantSelectionCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      '⭐ ${restaurant.rating.toStringAsFixed(1)} • '
+                      '⭐ ${restaurant.rating.toStringAsFixed(2)} • '
                       '${restaurant.reviewCount} reviews',
                       style:
                           const TextStyle(color: AppColors.textSecondary),

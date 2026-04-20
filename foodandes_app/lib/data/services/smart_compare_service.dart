@@ -141,7 +141,7 @@ class SmartCompareService {
 
     if (a.rating > b.rating) {
       s.add(
-          '⭐ Better rated  ${a.rating.toStringAsFixed(1)} vs ${b.rating.toStringAsFixed(1)}');
+          '⭐ Better rated  ${a.rating.toStringAsFixed(2)} vs ${b.rating.toStringAsFixed(2)}');
     }
     if (a.reviewCount > b.reviewCount * 1.2) {
       s.add('💬 More reviews  (${a.reviewCount} vs ${b.reviewCount})');
