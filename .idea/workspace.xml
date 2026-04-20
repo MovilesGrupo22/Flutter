@@ -5,32 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="928951ce-400b-4bfa-b34c-5d37ea2bedc4" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/foodandes_app/android/app/google-services.json" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/android/app/google-services.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/foodandes_app/android/app/src/main/AndroidManifest.xml" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/android/app/src/main/AndroidManifest.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/foodandes_app/lib/data/services/analytics_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/lib/data/services/analytics_service.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/foodandes_app/lib/data/services/auth_services.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/lib/data/services/auth_services.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/foodandes_app/lib/data/services/cas_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/lib/data/services/cas_service.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/foodandes_app/lib/data/services/popular_filters_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/lib/data/services/popular_filters_service.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/foodandes_app/lib/data/services/review_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/lib/data/services/review_service.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/foodandes_app/lib/data/services/trending_restaurants_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/lib/data/services/trending_restaurants_service.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/foodandes_app/lib/features/auth/login_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/lib/features/auth/login_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/foodandes_app/lib/features/auth/register_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/lib/features/auth/register_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/foodandes_app/lib/features/favorites/favorites_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/lib/features/favorites/favorites_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/foodandes_app/lib/features/home/home_filtered_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/lib/features/home/home_filtered_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/foodandes_app/lib/features/home/home_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/lib/features/home/home_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/foodandes_app/lib/features/profile/profile_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/lib/features/profile/profile_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/foodandes_app/lib/features/restaurant/compare_restaurants_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/lib/features/restaurant/compare_restaurants_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/foodandes_app/lib/features/restaurant/restaurant_detail_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/lib/features/restaurant/restaurant_detail_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/foodandes_app/lib/features/search/search_empty_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/lib/features/search/search_empty_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/foodandes_app/linux/flutter/generated_plugin_registrant.cc" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/linux/flutter/generated_plugin_registrant.cc" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/foodandes_app/linux/flutter/generated_plugins.cmake" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/linux/flutter/generated_plugins.cmake" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/foodandes_app/macos/Flutter/GeneratedPluginRegistrant.swift" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/macos/Flutter/GeneratedPluginRegistrant.swift" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/foodandes_app/pubspec.lock" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/pubspec.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/foodandes_app/pubspec.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/pubspec.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/foodandes_app/test/widget_test.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/test/widget_test.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/foodandes_app/windows/flutter/generated_plugin_registrant.cc" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/windows/flutter/generated_plugin_registrant.cc" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/foodandes_app/windows/flutter/generated_plugins.cmake" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/windows/flutter/generated_plugins.cmake" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

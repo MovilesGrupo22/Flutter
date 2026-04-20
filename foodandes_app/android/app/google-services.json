@@ -58,6 +58,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "994016422490-8lb9bivosevpegim2a5qopb5hcof2h4p.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.restaurandes",
+            "certificate_hash": "d6445b461d38e5851ce5304e999b48b4e552f44a"
+          }
+        },
+        {
           "client_id": "994016422490-h9gelll1f6onamlgnft149g4kruhbhdc.apps.googleusercontent.com",
           "client_type": 3
         }
