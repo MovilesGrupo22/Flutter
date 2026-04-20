@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:foodandes_app/core/constants/app_colors.dart';
@@ -65,20 +67,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       final user = credential.user;
 
-      if (user != null) {
-        await AnalyticsService.instance.setUser(
-          userId: user.uid,
-          email: user.email,
-        );
-        await AnalyticsService.instance.logSignUp(
-          method: 'email',
-          userId: user.uid,
-        );
-        await AnalyticsService.instance.logUserSessionStart(
-          userId: user.uid,
-        );
-      }
-
       if (!mounted) return;
 
       Navigator.pushNamedAndRemoveUntil(
@@ -86,6 +74,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         HomeScreen.routeName,
         (route) => false,
       );
+
+      if (user != null) {
+        unawaited(_logSignUpAnalytics(user, 'email'));
+      }
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
       debugPrint('REGISTER ERROR -> code: ${e.code}, message: ${e.message}');
@@ -113,19 +105,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (credential == null) return; // User cancelled
 
       final user = credential.user;
-      if (user != null) {
-        await AnalyticsService.instance.setUser(
-          userId: user.uid,
-          email: user.email,
-        );
-        await AnalyticsService.instance.logSignUp(
-          method: 'google',
-          userId: user.uid,
-        );
-        await AnalyticsService.instance.logUserSessionStart(
-          userId: user.uid,
-        );
-      }
 
       if (!mounted) return;
 
@@ -134,6 +113,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         HomeScreen.routeName,
         (route) => false,
       );
+
+      if (user != null) {
+        unawaited(_logSignUpAnalytics(user, 'google'));
+      }
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
       _showSnack('Google sign-up failed: ${e.message ?? e.code}');
@@ -150,6 +133,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
   void _showSnack(String message) {
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
+  }
+
+
+  Future<void> _logSignUpAnalytics(User user, String method) async {
+    try {
+      await AnalyticsService.instance.setUser(
+        userId: user.uid,
+        email: user.email,
+      );
+      await AnalyticsService.instance.logSignUp(
+        method: method,
+        userId: user.uid,
+      );
+      await AnalyticsService.instance.logUserSessionStart(
+        userId: user.uid,
+      );
+    } catch (e) {
+      debugPrint('SIGN UP ANALYTICS ERROR -> $e');
+    }
   }
 
   // ─── Build ────────────────────────────────────────────────────────────────
@@ -189,10 +191,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             child:
                                 CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : Image.network(
-                            'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',
-                            height: 22,
-                            width: 22,
+                        : const Icon(
+                            Icons.account_circle_outlined,
+                            color: AppColors.textPrimary,
                           ),
                     label: const Text(
                       'Sign up with Google',

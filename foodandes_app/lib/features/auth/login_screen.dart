@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:foodandes_app/core/constants/app_colors.dart';
@@ -50,22 +52,13 @@ class _LoginScreenState extends State<LoginScreen> {
           await _authServices.login(email: email, password: password);
 
       final user = credential.user;
-      if (user != null) {
-        await AnalyticsService.instance.setUser(
-          userId: user.uid,
-          email: user.email,
-        );
-        await AnalyticsService.instance.logSignIn(
-          method: 'email',
-          userId: user.uid,
-        );
-        await AnalyticsService.instance.logUserSessionStart(
-          userId: user.uid,
-        );
-      }
 
       if (!mounted) return;
       Navigator.pushReplacementNamed(context, HomeScreen.routeName);
+
+      if (user != null) {
+        unawaited(_logSignInAnalytics(user, 'email'));
+      }
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
       debugPrint('LOGIN ERROR -> code: ${e.code}, message: ${e.message}');
@@ -96,22 +89,13 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       final user = credential.user;
-      if (user != null) {
-        await AnalyticsService.instance.setUser(
-          userId: user.uid,
-          email: user.email,
-        );
-        await AnalyticsService.instance.logSignIn(
-          method: 'google',
-          userId: user.uid,
-        );
-        await AnalyticsService.instance.logUserSessionStart(
-          userId: user.uid,
-        );
-      }
 
       if (!mounted) return;
       Navigator.pushReplacementNamed(context, HomeScreen.routeName);
+
+      if (user != null) {
+        unawaited(_logSignInAnalytics(user, 'google'));
+      }
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
       _showSnack('Google login failed: ${e.message ?? e.code}');
@@ -155,6 +139,25 @@ class _LoginScreenState extends State<LoginScreen> {
         duration: duration ?? const Duration(seconds: 3),
       ),
     );
+  }
+
+
+  Future<void> _logSignInAnalytics(User user, String method) async {
+    try {
+      await AnalyticsService.instance.setUser(
+        userId: user.uid,
+        email: user.email,
+      );
+      await AnalyticsService.instance.logSignIn(
+        method: method,
+        userId: user.uid,
+      );
+      await AnalyticsService.instance.logUserSessionStart(
+        userId: user.uid,
+      );
+    } catch (e) {
+      debugPrint('SIGN IN ANALYTICS ERROR -> $e');
+    }
   }
 
   // ─── Build ────────────────────────────────────────────────────────────────
@@ -310,10 +313,9 @@ class _LoginScreenState extends State<LoginScreen> {
                               height: 20,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : Image.network(
-                              'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',
-                              height: 22,
-                              width: 22,
+                          : const Icon(
+                              Icons.account_circle_outlined,
+                              color: AppColors.textPrimary,
                             ),
                       label: const Text(
                         'Continue with Google',
