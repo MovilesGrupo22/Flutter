@@ -83,7 +83,7 @@ class ReviewService {
 
       transaction.update(restaurantRef, {
         'reviewCount': newReviewCount,
-        'rating': double.parse(newAverageRating.toStringAsFixed(1)),
+        'rating': double.parse(newAverageRating.toStringAsFixed(2)),
       });
     });
   }

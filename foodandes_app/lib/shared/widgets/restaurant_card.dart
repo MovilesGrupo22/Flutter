@@ -94,7 +94,7 @@ class RestaurantCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    '${restaurant.category}  •  ⭐ ${restaurant.rating}  •  ${restaurant.priceRange}',
+                    '${restaurant.category}  •  ⭐ ${restaurant.rating.toStringAsFixed(2)}  •  ${restaurant.priceRange}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
