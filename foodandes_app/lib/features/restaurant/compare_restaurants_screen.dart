@@ -5,6 +5,7 @@ import 'package:foodandes_app/data/services/smart_compare_service.dart';
 import 'package:foodandes_app/data/services/section_usage_service.dart';
 import 'package:foodandes_app/data/services/trending_restaurants_service.dart';
 import 'package:foodandes_app/models/restaurant.dart';
+import 'package:foodandes_app/shared/widgets/app_cached_image.dart';
 import 'package:foodandes_app/shared/widgets/open_badge.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:foodandes_app/data/services/analytics_service.dart';
@@ -877,19 +878,16 @@ class _SelectedRestaurantCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 10),
-            ClipRRect(
+            AppCachedImage(
+              imageUrl: restaurant.imageURL,
+              height: 120,
+              width: double.infinity,
+              fit: BoxFit.cover,
               borderRadius: BorderRadius.circular(14),
-              child: Image.network(
-                restaurant.imageURL,
+              errorWidget: Container(
                 height: 120,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
-                  height: 120,
-                  color: Colors.grey.shade300,
-                  child: const Center(
-                      child: Icon(Icons.image_not_supported)),
-                ),
+                color: Colors.grey.shade300,
+                child: const Center(child: Icon(Icons.image_not_supported)),
               ),
             ),
             const SizedBox(height: 12),
@@ -974,19 +972,17 @@ class _RestaurantSelectionCard extends StatelessWidget {
           padding: const EdgeInsets.all(14),
           child: Row(
             children: [
-              ClipRRect(
+              AppCachedImage(
+                imageUrl: restaurant.imageURL,
+                width: 78,
+                height: 78,
+                fit: BoxFit.cover,
                 borderRadius: BorderRadius.circular(14),
-                child: Image.network(
-                  restaurant.imageURL,
+                errorWidget: Container(
                   width: 78,
                   height: 78,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                    width: 78,
-                    height: 78,
-                    color: Colors.grey.shade300,
-                    child: const Icon(Icons.image_not_supported),
-                  ),
+                  color: Colors.grey.shade300,
+                  child: const Icon(Icons.image_not_supported),
                 ),
               ),
               const SizedBox(width: 14),

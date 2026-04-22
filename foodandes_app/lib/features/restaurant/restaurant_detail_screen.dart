@@ -5,6 +5,7 @@ import 'package:foodandes_app/data/repositories/restaurant_repository.dart';
 import 'package:foodandes_app/features/restaurant/compare_restaurants_screen.dart';
 import 'package:foodandes_app/features/restaurant/reviews_screen.dart';
 import 'package:foodandes_app/models/restaurant.dart';
+import 'package:foodandes_app/shared/widgets/app_cached_image.dart';
 import 'package:foodandes_app/shared/widgets/open_badge.dart';
 import 'package:foodandes_app/data/services/analytics_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -142,11 +143,11 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                 children: [
                   AspectRatio(
                     aspectRatio: 16 / 9,
-                    child: Image.network(
-                      restaurant.imageURL,
+                    child: AppCachedImage(
+                      imageUrl: restaurant.imageURL,
                       width: double.infinity,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
+                      errorWidget: Container(
                         color: Colors.grey.shade300,
                         child: const Center(
                           child: Icon(Icons.image_not_supported, size: 50),

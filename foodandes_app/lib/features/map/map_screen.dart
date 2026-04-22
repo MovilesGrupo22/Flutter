@@ -8,6 +8,7 @@ import 'package:foodandes_app/core/constants/app_colors.dart';
 import 'package:foodandes_app/data/repositories/restaurant_repository.dart';
 import 'package:foodandes_app/features/restaurant/restaurant_detail_screen.dart';
 import 'package:foodandes_app/models/restaurant.dart';
+import 'package:foodandes_app/shared/widgets/app_cached_image.dart';
 import 'package:foodandes_app/shared/widgets/custom_bottom_navbar.dart';
 import 'package:foodandes_app/shared/widgets/open_badge.dart';
 import 'package:foodandes_app/data/services/analytics_service.dart';
@@ -593,19 +594,17 @@ class _MapCardImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
+    return AppCachedImage(
+      imageUrl: restaurant.imageURL,
+      width: size,
+      height: size,
+      fit: BoxFit.cover,
       borderRadius: BorderRadius.circular(16),
-      child: Image.network(
-        restaurant.imageURL,
+      errorWidget: Container(
         width: size,
         height: size,
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => Container(
-          width: size,
-          height: size,
-          color: Colors.grey.shade300,
-          child: const Icon(Icons.image_not_supported),
-        ),
+        color: Colors.grey.shade300,
+        child: const Icon(Icons.image_not_supported),
       ),
     );
   }
