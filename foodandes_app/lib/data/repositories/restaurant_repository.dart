@@ -2,14 +2,58 @@ import 'package:foodandes_app/data/services/restaurant_service.dart';
 import 'package:foodandes_app/data/services/user_service.dart';
 import 'package:foodandes_app/models/restaurant.dart';
 
-// FIX #2 (app muy lenta):
-// La versión anterior ejecutaba getRestaurants() y getFavoriteIds() en
-// secuencia (dos round-trips Firestore). Ahora se lanzan en paralelo con
-// Future.wait, reduciendo la latencia a la del más lento de los dos.
+// ─────────────────────────────────────────────────────────────────────────────
+// RestaurantRepository — multi-threading additions (MS5)
+//
+// STRATEGY 1 – Stream (5 pts)
+//   restaurantsStream() exposes a Stream<List<Restaurant>> that merges the
+//   real-time Firestore stream from RestaurantService with the user's favourite
+//   IDs fetched asynchronously.
+//
+//   asyncMap() lets us perform an async operation (fetching favourites) for
+//   every element the upstream Stream emits.  The result is a new Stream whose
+//   values are already enriched with isFavorite state — so the HomeScreen's
+//   StreamBuilder receives ready-to-render data.
+//
+// STRATEGY 2 – Future.wait (parallel futures, 5 pts)
+//   fetchRestaurants() and fetchRestaurantById() already use Future.wait to
+//   launch two Firestore reads in parallel, which is the documented Future
+//   pattern from class (Future + handler).
+// ─────────────────────────────────────────────────────────────────────────────
 
 class RestaurantRepository {
   final RestaurantService _restaurantService = RestaurantService();
   final UserService _userService = UserService();
+
+  // ── STRATEGY 1: Stream ──────────────────────────────────────────────────────
+  //
+  // Returns a Stream<List<Restaurant>> where each emission is the current full
+  // restaurant list with up-to-date isFavorite flags.
+  //
+  // asyncMap() chains an async operation onto each stream event:
+  //   1. RestaurantService.restaurantsStream() emits a raw List<Restaurant>
+  //      whenever Firestore changes.
+  //   2. asyncMap() fetches the user's favourite IDs (async, via Future).
+  //   3. We merge both results and emit an enriched List<Restaurant>.
+  //
+  // This means the HomeScreen always has live data — no manual refresh needed.
+  Stream<List<Restaurant>> restaurantsStream() {
+    return _restaurantService
+        .restaurantsStream()
+        .asyncMap((restaurants) async {
+          // Fetch favourite IDs each time new restaurant data arrives.
+          // If it fails we fall back to an empty list so the stream keeps going.
+          final favoriteIds = await _userService
+              .getFavoriteRestaurantIds()
+              .catchError((_) => <String>[]);
+
+          return restaurants.map((r) {
+            return r.copyWith(isFavorite: favoriteIds.contains(r.id));
+          }).toList();
+        });
+  }
+
+  // ── Existing methods (Future-based) — unchanged ────────────────────────────
 
   Future<List<Restaurant>> fetchRestaurants() async {
     // Lanzar ambas lecturas en paralelo
