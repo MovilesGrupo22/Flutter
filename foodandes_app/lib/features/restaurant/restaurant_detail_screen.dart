@@ -11,6 +11,8 @@ import 'package:foodandes_app/data/services/analytics_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:foodandes_app/data/services/trending_restaurants_service.dart';
 import 'package:foodandes_app/data/services/demand_analytics_service.dart';
+import 'package:foodandes_app/shared/widgets/offline_protected_notice.dart';
+import 'package:foodandes_app/shared/widgets/offline_unavailable_screen.dart';
 
 class RestaurantDetailScreen extends StatefulWidget {
   static const String routeName = '/restaurant-detail';
@@ -109,6 +111,20 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
           }
 
           if (snapshot.hasError) {
+            final errorText = snapshot.error.toString().toLowerCase();
+            final looksOffline = errorText.contains('unavailable') ||
+                errorText.contains('network') ||
+                errorText.contains('offline') ||
+                errorText.contains('failed-precondition');
+
+            if (looksOffline) {
+              return const OfflineUnavailableScreen(
+                title: 'Restaurant detail unavailable offline',
+                message:
+                    'This restaurant is not stored locally yet. Please reconnect to load it for the first time.',
+              );
+            }
+
             return Center(
               child: Text('Error loading restaurant: ${snapshot.error}'),
             );
