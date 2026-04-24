@@ -10,6 +10,7 @@ import 'package:foodandes_app/shared/widgets/open_badge.dart';
 import 'package:foodandes_app/data/services/analytics_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:foodandes_app/data/services/trending_restaurants_service.dart';
+import 'package:foodandes_app/data/services/demand_analytics_service.dart';
 
 class RestaurantDetailScreen extends StatefulWidget {
   static const String routeName = '/restaurant-detail';
@@ -128,6 +129,12 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
             TrendingRestaurantsService.instance.recordRestaurantView(
               restaurantId: restaurant.id,
               restaurantName: restaurant.name,
+            );
+
+            DemandAnalyticsService.instance.recordDemandEvent(
+              restaurant: restaurant,
+              eventType: 'restaurant_view',
+              userId: userId,
             );
           }
           
@@ -314,6 +321,12 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                             await AnalyticsService.instance.logDirectionsRequested(
                               restaurantId: restaurant.id,
                               restaurantName: restaurant.name,
+                              userId: userId,
+                            );
+
+                            await DemandAnalyticsService.instance.recordDemandEvent(
+                              restaurant: restaurant,
+                              eventType: 'directions_requested',
                               userId: userId,
                             );
 
