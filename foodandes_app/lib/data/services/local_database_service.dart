@@ -19,6 +19,7 @@ class LocalDatabaseService {
   Future<Database> _openDatabase() async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, 'restaurandes.db');
+
     return openDatabase(
       path,
       version: 2,
@@ -37,6 +38,7 @@ class LocalDatabaseService {
             cached_at INTEGER
           )
         ''');
+
         await db.execute('''
           CREATE TABLE user_favorites (
             user_id TEXT,
@@ -44,29 +46,47 @@ class LocalDatabaseService {
             PRIMARY KEY(user_id, restaurant_id)
           )
         ''');
-        await db.execute('''
-          CREATE TABLE search_history (
-            query TEXT PRIMARY KEY,
-            searched_at INTEGER NOT NULL
-          )
-        ''');
+
+        await _createSearchHistoryTable(db);
+        await _createPendingReviewsTable(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
-          await db.execute('''
-            CREATE TABLE IF NOT EXISTS search_history (
-              query TEXT PRIMARY KEY,
-              searched_at INTEGER NOT NULL
-            )
-          ''');
+          await _createSearchHistoryTable(db);
+          await _createPendingReviewsTable(db);
         }
       },
     );
   }
 
+  Future<void> _createSearchHistoryTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS search_history (
+        query TEXT PRIMARY KEY,
+        searched_at INTEGER NOT NULL
+      )
+    ''');
+  }
+
+  Future<void> _createPendingReviewsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS pending_reviews (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        restaurant_id TEXT NOT NULL,
+        restaurant_name TEXT,
+        comment TEXT NOT NULL,
+        rating INTEGER NOT NULL,
+        user_name TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        retries INTEGER DEFAULT 0
+      )
+    ''');
+  }
+
   Future<void> insertRestaurants(List<Restaurant> restaurants) async {
     final db = await _database;
     final batch = db.batch();
+
     for (final r in restaurants) {
       batch.insert(
         'restaurants',
@@ -85,15 +105,18 @@ class LocalDatabaseService {
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
     }
+
     await batch.commit(noResult: true);
   }
 
   Future<List<Restaurant>> getRestaurants() async {
     final db = await _database;
     final rows = await db.query('restaurants');
+
     return rows.map((row) {
       final tagsJson = row['tags_json'] as String? ?? '[]';
       final tags = (jsonDecode(tagsJson) as List).cast<String>();
+
       return Restaurant(
         id: row['id'] as String,
         name: row['name'] as String? ?? '',
@@ -114,35 +137,6 @@ class LocalDatabaseService {
     }).toList();
   }
 
-  Future<void> insertFavorite(String userId, String restaurantId) async {
-    final db = await _database;
-    await db.insert(
-      'user_favorites',
-      {'user_id': userId, 'restaurant_id': restaurantId},
-      conflictAlgorithm: ConflictAlgorithm.ignore,
-    );
-  }
-
-  Future<void> removeFavorite(String userId, String restaurantId) async {
-    final db = await _database;
-    await db.delete(
-      'user_favorites',
-      where: 'user_id = ? AND restaurant_id = ?',
-      whereArgs: [userId, restaurantId],
-    );
-  }
-
-  Future<List<String>> getFavoriteIds(String userId) async {
-    final db = await _database;
-    final rows = await db.query(
-      'user_favorites',
-      columns: ['restaurant_id'],
-      where: 'user_id = ?',
-      whereArgs: [userId],
-    );
-    return rows.map((r) => r['restaurant_id'] as String).toList();
-  }
-
   Future<Restaurant?> getRestaurantById(String id) async {
     final db = await _database;
     final rows = await db.query(
@@ -151,10 +145,13 @@ class LocalDatabaseService {
       whereArgs: [id],
       limit: 1,
     );
+
     if (rows.isEmpty) return null;
+
     final row = rows.first;
     final tagsJson = row['tags_json'] as String? ?? '[]';
     final tags = (jsonDecode(tagsJson) as List).cast<String>();
+
     return Restaurant(
       id: row['id'] as String,
       name: row['name'] as String? ?? '',
@@ -179,14 +176,54 @@ class LocalDatabaseService {
     await db.delete('restaurants');
   }
 
+  Future<void> insertFavorite(String userId, String restaurantId) async {
+    final db = await _database;
+
+    await db.insert(
+      'user_favorites',
+      {
+        'user_id': userId,
+        'restaurant_id': restaurantId,
+      },
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
+  }
+
+  Future<void> removeFavorite(String userId, String restaurantId) async {
+    final db = await _database;
+
+    await db.delete(
+      'user_favorites',
+      where: 'user_id = ? AND restaurant_id = ?',
+      whereArgs: [userId, restaurantId],
+    );
+  }
+
+  Future<List<String>> getFavoriteIds(String userId) async {
+    final db = await _database;
+
+    final rows = await db.query(
+      'user_favorites',
+      columns: ['restaurant_id'],
+      where: 'user_id = ?',
+      whereArgs: [userId],
+    );
+
+    return rows.map((r) => r['restaurant_id'] as String).toList();
+  }
+
   Future<void> insertSearchQuery(String query) async {
     final db = await _database;
+
     await db.insert(
       'search_history',
-      {'query': query, 'searched_at': DateTime.now().millisecondsSinceEpoch},
+      {
+        'query': query,
+        'searched_at': DateTime.now().millisecondsSinceEpoch,
+      },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
-    // Keep only the 10 most recent unique queries
+
     await db.rawDelete('''
       DELETE FROM search_history
       WHERE query NOT IN (
@@ -197,17 +234,20 @@ class LocalDatabaseService {
 
   Future<List<String>> getSearchHistory() async {
     final db = await _database;
+
     final rows = await db.query(
       'search_history',
       columns: ['query'],
       orderBy: 'searched_at DESC',
       limit: 10,
     );
+
     return rows.map((r) => r['query'] as String).toList();
   }
 
   Future<void> deleteSearchQuery(String query) async {
     final db = await _database;
+
     await db.delete(
       'search_history',
       where: 'query = ?',
@@ -218,5 +258,53 @@ class LocalDatabaseService {
   Future<void> clearSearchHistory() async {
     final db = await _database;
     await db.delete('search_history');
+  }
+
+  Future<void> insertPendingReview({
+    required String restaurantId,
+    required String restaurantName,
+    required String comment,
+    required int rating,
+    required String userName,
+  }) async {
+    final db = await _database;
+
+    await db.insert('pending_reviews', {
+      'restaurant_id': restaurantId,
+      'restaurant_name': restaurantName,
+      'comment': comment,
+      'rating': rating,
+      'user_name': userName,
+      'created_at': DateTime.now().millisecondsSinceEpoch,
+      'retries': 0,
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> getPendingReviews() async {
+    final db = await _database;
+
+    return db.query(
+      'pending_reviews',
+      orderBy: 'created_at ASC',
+    );
+  }
+
+  Future<void> deletePendingReview(int id) async {
+    final db = await _database;
+
+    await db.delete(
+      'pending_reviews',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> incrementPendingReviewRetries(int id) async {
+    final db = await _database;
+
+    await db.rawUpdate(
+      'UPDATE pending_reviews SET retries = retries + 1 WHERE id = ?',
+      [id],
+    );
   }
 }
