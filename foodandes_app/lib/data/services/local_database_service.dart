@@ -127,6 +127,37 @@ class LocalDatabaseService {
     return rows.map((r) => r['restaurant_id'] as String).toList();
   }
 
+  Future<Restaurant?> getRestaurantById(String id) async {
+    final db = await _database;
+    final rows = await db.query(
+      'restaurants',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    final row = rows.first;
+    final tagsJson = row['tags_json'] as String? ?? '[]';
+    final tags = (jsonDecode(tagsJson) as List).cast<String>();
+    return Restaurant(
+      id: row['id'] as String,
+      name: row['name'] as String? ?? '',
+      category: row['category'] as String? ?? '',
+      description: '',
+      imageURL: row['image_url'] as String? ?? '',
+      isOpen: (row['is_open'] as int? ?? 0) == 1,
+      latitude: 0.0,
+      longitude: 0.0,
+      openingHours: '',
+      priceRange: row['price_range'] as String? ?? '',
+      rating: (row['rating'] as num?)?.toDouble() ?? 0.0,
+      reviewCount: 0,
+      tags: tags,
+      address: row['address'] as String? ?? '',
+      phone: '',
+    );
+  }
+
   Future<void> clearRestaurants() async {
     final db = await _database;
     await db.delete('restaurants');
