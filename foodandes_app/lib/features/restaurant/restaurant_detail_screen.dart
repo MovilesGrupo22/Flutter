@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:foodandes_app/core/constants/app_colors.dart';
 import 'package:foodandes_app/core/utils/map_launcher_helper.dart';
 import 'package:foodandes_app/data/repositories/restaurant_repository.dart';
+import 'package:foodandes_app/data/services/local_database_service.dart';
 import 'package:foodandes_app/features/restaurant/compare_restaurants_screen.dart';
 import 'package:foodandes_app/features/restaurant/reviews_screen.dart';
 import 'package:foodandes_app/models/restaurant.dart';
@@ -28,11 +29,25 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
 
   String? _restaurantId;
   Future<Restaurant?>? _restaurantFuture;
-  bool _hasLoggedRestaurantView = false;
   String? _lastLoggedRestaurantId;
+  bool _servedFromLocal = false;
 
   Future<Restaurant?> _fetchRestaurant(String restaurantId) async {
-    return _repository.fetchRestaurantById(restaurantId);
+    _servedFromLocal = false;
+
+    // Try primary path: LRU cache → list cache → Firestore.
+    final restaurant = await _repository.fetchRestaurantById(restaurantId);
+    if (restaurant != null) return restaurant;
+
+    // Fall back to SQLite when offline or Firestore is unreachable.
+    final local =
+        await LocalDatabaseService.instance.getRestaurantById(restaurantId);
+    if (local != null) {
+      _servedFromLocal = true;
+      return local;
+    }
+
+    return null;
   }
 
   @override
@@ -41,11 +56,10 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
 
     final restaurantId = ModalRoute.of(context)?.settings.arguments as String?;
 
-  if (restaurantId != null && restaurantId != _restaurantId) {
-    _restaurantId = restaurantId;
-    _hasLoggedRestaurantView = false;
-    _loadRestaurant();
-}
+    if (restaurantId != null && restaurantId != _restaurantId) {
+      _restaurantId = restaurantId;
+      _loadRestaurant();
+    }
   }
 
   void _loadRestaurant() {
@@ -162,6 +176,10 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
 
           return ListView(
             children: [
+              if (_servedFromLocal)
+                const OfflineProtectedNotice(
+                  message: 'Offline mode · showing last saved version',
+                ),
               Stack(
                 children: [
                   AspectRatio(
@@ -382,6 +400,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                                 'restaurant_id': restaurant.id,
                               },
                             );
+                            if (!context.mounted) return;
                             await Navigator.pushNamed(
                               context,
                               ReviewsScreen.routeName,
@@ -424,6 +443,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                                 'restaurant_id': restaurant.id,
                               },
                             );
+                            if (!context.mounted) return;
                             await Navigator.pushNamed(
                               context,
                               CompareRestaurantsScreen.routeName,

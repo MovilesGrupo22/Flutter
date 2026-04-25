@@ -1,9 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:foodandes_app/data/repositories/restaurant_repository.dart';
+import 'package:foodandes_app/data/services/connectivity_service.dart';
+import 'package:foodandes_app/data/services/local_database_service.dart';
 import 'package:foodandes_app/features/favorites/favorites_empty_screen.dart';
 import 'package:foodandes_app/features/restaurant/restaurant_detail_screen.dart';
 import 'package:foodandes_app/models/restaurant.dart';
 import 'package:foodandes_app/shared/widgets/custom_bottom_navbar.dart';
+import 'package:foodandes_app/shared/widgets/offline_protected_notice.dart';
 import 'package:foodandes_app/shared/widgets/restaurant_card.dart';
 import 'package:foodandes_app/data/services/analytics_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -19,6 +24,12 @@ class FavoritesScreen extends StatefulWidget {
 }
 
 class _FavoritesScreenState extends State<FavoritesScreen> {
+  final RestaurantRepository _repository = RestaurantRepository();
+
+  late Future<List<Restaurant>> _favoritesFuture;
+  bool _isOffline = false;
+  StreamSubscription<bool>? _connectivitySubscription;
+
   Future<void> _logFavoritesInteraction(
     String action, {
     Map<String, Object>? additionalParameters,
@@ -32,18 +43,15 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     );
   }
 
-  final RestaurantRepository _repository = RestaurantRepository();
-
-  late Future<List<Restaurant>> _favoritesFuture;
-
   @override
   void initState() {
     super.initState();
-    _loadFavorites();
+    // Optimistic default: assume online until connectivity check completes.
+    _favoritesFuture = _repository.fetchFavoriteRestaurants();
+    _initConnectivity();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final userId = FirebaseAuth.instance.currentUser?.uid;
-
       AnalyticsService.instance.logSectionView(
         section: AppSection.favorites,
         userId: userId,
@@ -51,11 +59,63 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     });
   }
 
+  Future<void> _initConnectivity() async {
+    final online = await ConnectivityService.instance.isOnline;
+    if (!mounted) return;
+    setState(() {
+      _isOffline = !online;
+      _loadFavorites();
+    });
+
+    _connectivitySubscription =
+        ConnectivityService.instance.isOnlineStream.listen((isOnline) {
+      if (!mounted) return;
+      setState(() {
+        _isOffline = !isOnline;
+        _loadFavorites();
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _connectivitySubscription?.cancel();
+    super.dispose();
+  }
+
   void _loadFavorites() {
-    _favoritesFuture = _repository.fetchFavoriteRestaurants();
+    _favoritesFuture = _isOffline
+        ? _loadFavoritesFromLocal()
+        : _repository.fetchFavoriteRestaurants();
+  }
+
+  Future<List<Restaurant>> _loadFavoritesFromLocal() async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return [];
+
+    final results = await Future.wait<dynamic>([
+      LocalDatabaseService.instance.getRestaurants(),
+      LocalDatabaseService.instance.getFavoriteIds(userId),
+    ]);
+
+    final allRestaurants = results[0] as List<Restaurant>;
+    final favoriteIds = results[1] as List<String>;
+
+    return allRestaurants
+        .where((r) => favoriteIds.contains(r.id))
+        .map((r) => r.copyWith(isFavorite: true))
+        .toList();
   }
 
   Future<void> _toggleFavorite(Restaurant restaurant) async {
+    if (_isOffline) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cannot change favorites while offline')),
+      );
+      return;
+    }
+
     final userId = FirebaseAuth.instance.currentUser?.uid;
     final willBeFavorite = !restaurant.isFavorite;
 
@@ -117,49 +177,70 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
 
         final favorites = snapshot.data ?? [];
 
-        if (favorites.isEmpty) {
+        if (favorites.isEmpty && !_isOffline) {
           return const FavoritesEmptyScreen();
         }
 
         return Scaffold(
-          appBar: AppBar(
-            title: const Text('My Favorites'),
-          ),
+          appBar: AppBar(title: const Text('My Favorites')),
           bottomNavigationBar: const CustomBottomNavbar(currentIndex: 3),
           body: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              Text(
-                '${favorites.length} saved restaurants',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 16),
-              ...favorites.map(
-                (restaurant) => Padding(
-                  padding: const EdgeInsets.only(bottom: 18),
-                  child: RestaurantCard(
-                    restaurant: restaurant,
-                    showFavoriteIcon: true,
-                    favoriteFilled: true,
-                    onFavoriteTap: () => _toggleFavorite(restaurant),
-                    onTap: () async {
-                      await _logFavoritesInteraction(
-                        'open_favorite_restaurant',
-                        additionalParameters: {'restaurant_id': restaurant.id},
-                      );
-                      await Navigator.pushNamed(
-                        context,
-                        RestaurantDetailScreen.routeName,
-                        arguments: restaurant.id,
-                      );
-
-                      setState(() {
-                        _loadFavorites();
-                      });
-                    },
+              if (_isOffline)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 16),
+                  child: OfflineProtectedNotice(
+                    message: 'Offline mode · showing saved favorites',
                   ),
                 ),
-              ),
+              if (favorites.isEmpty)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.only(top: 48),
+                    child: Text(
+                      'No saved favorites found locally',
+                      style: TextStyle(fontSize: 16),
+                    ),
+                  ),
+                )
+              else ...[
+                Text(
+                  '${favorites.length} saved restaurants',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 16),
+                ...favorites.map(
+                  (restaurant) => Padding(
+                    padding: const EdgeInsets.only(bottom: 18),
+                    child: RestaurantCard(
+                      restaurant: restaurant,
+                      showFavoriteIcon: true,
+                      favoriteFilled: true,
+                      onFavoriteTap: () => _toggleFavorite(restaurant),
+                      onTap: () async {
+                        await _logFavoritesInteraction(
+                          'open_favorite_restaurant',
+                          additionalParameters: {
+                            'restaurant_id': restaurant.id,
+                          },
+                        );
+                        if (!context.mounted) return;
+                        await Navigator.pushNamed(
+                          context,
+                          RestaurantDetailScreen.routeName,
+                          arguments: restaurant.id,
+                        );
+
+                        if (!mounted) return;
+                        setState(() {
+                          _loadFavorites();
+                        });
+                      },
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         );
