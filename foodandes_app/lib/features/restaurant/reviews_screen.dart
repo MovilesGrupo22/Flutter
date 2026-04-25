@@ -7,6 +7,7 @@ import 'package:foodandes_app/models/user_profile.dart';
 import 'package:foodandes_app/features/restaurant/write_review_screen.dart';
 import 'package:flutter/foundation.dart';
 import 'package:foodandes_app/data/services/review_stats_isolate.dart';
+import 'package:foodandes_app/data/services/reviews_lru_cache_service.dart';
 
 class ReviewsInitialData {
   final List<Review> reviews;
@@ -64,11 +65,26 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
   }
 
   Future<ReviewsInitialData> _loadInitialData(String restaurantId) async {
+    final cachedReviews =
+        ReviewsLruCacheService.instance.getReviews(restaurantId);
+
     final results = await Future.wait<dynamic>([
       _reviewRepository
           .fetchReviewsByRestaurant(restaurantId)
-          .catchError((error) {
+          .then((reviews) {
+        ReviewsLruCacheService.instance.saveReviews(
+          restaurantId: restaurantId,
+          reviews: reviews,
+        );
+
+        return reviews;
+      }).catchError((error) {
         debugPrint('Initial reviews loading failed: $error');
+
+        if (cachedReviews != null) {
+          return cachedReviews;
+        }
+
         return <Review>[];
       }),
       _userService.getCurrentUserProfile().catchError((error) {
@@ -95,6 +111,10 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
       },
     );
 
+    // 🔥 LIMPIAR CACHE DESPUÉS DE VOLVER
+    ReviewsLruCacheService.instance.clearRestaurant(_restaurantId!);
+
+    // 🔄 RECARGAR DATA
     setState(() {
       _loadData();
     });
@@ -144,6 +164,13 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
             builder: (context, reviewSnapshot) {
               final reviews = reviewSnapshot.data ?? initialData.reviews;
               final profile = initialData.profile;
+
+              if (_restaurantId != null && reviewSnapshot.hasData) {
+                ReviewsLruCacheService.instance.saveReviews(
+                  restaurantId: _restaurantId!,
+                  reviews: reviews,
+                );
+              }
 
               return FutureBuilder<ReviewStats>(
                 future: computeReviewStats(reviews),
