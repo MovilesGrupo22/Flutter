@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:foodandes_app/core/constants/app_colors.dart';
 import 'package:foodandes_app/data/services/analytics_service.dart';
 import 'package:foodandes_app/data/services/auth_services.dart';
+import 'package:foodandes_app/data/services/connectivity_service.dart';
 import 'package:foodandes_app/features/home/home_screen.dart';
+import 'package:foodandes_app/shared/widgets/offline_protected_notice.dart';
 
 class RegisterScreen extends StatefulWidget {
   static const String routeName = '/register';
@@ -29,9 +31,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isGoogleLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  bool _isOffline = false;
+  StreamSubscription<bool>? _connectivitySubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _initConnectivity();
+  }
+
+  Future<void> _initConnectivity() async {
+    final online = await ConnectivityService.instance.isOnline;
+    if (!mounted) return;
+    setState(() => _isOffline = !online);
+    _connectivitySubscription =
+        ConnectivityService.instance.isOnlineStream.listen((isOnline) {
+      if (!mounted) return;
+      setState(() => _isOffline = !isOnline);
+    });
+  }
 
   @override
   void dispose() {
+    _connectivitySubscription?.cancel();
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
@@ -42,6 +64,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
   // ─── Email Registration ────────────────────────────────────────────────────
 
   Future<void> _handleRegister() async {
+    if (_isOffline) {
+      _showSnack('You need internet to create an account.');
+      return;
+    }
+
     if (_nameController.text.trim().isEmpty ||
         _emailController.text.trim().isEmpty ||
         _passwordController.text.trim().isEmpty ||
@@ -97,6 +124,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
   // ─── Google Registration ───────────────────────────────────────────────────
 
   Future<void> _handleGoogleRegister() async {
+    if (_isOffline) {
+      _showSnack('Google sign-up requires internet.');
+      return;
+    }
+
     setState(() => _isGoogleLoading = true);
 
     try {
@@ -197,6 +229,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  if (_isOffline) const OfflineProtectedNotice(
+                    message: 'Offline mode · account creation requires internet',
+                  ),
+                  if (_isOffline) const SizedBox(height: 16),
                   // ── Google button (top for fast sign-up) ──────────────────
                   OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
