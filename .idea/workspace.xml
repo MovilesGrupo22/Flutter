@@ -5,15 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="928951ce-400b-4bfa-b34c-5d37ea2bedc4" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/foodandes_app/lib/data/services/restaurant_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/lib/data/services/restaurant_service.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/foodandes_app/lib/features/home/home_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/lib/features/home/home_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/foodandes_app/lib/shared/widgets/restaurant_card.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/lib/shared/widgets/restaurant_card.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/foodandes_app/linux/flutter/generated_plugins.cmake" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/linux/flutter/generated_plugins.cmake" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/foodandes_app/macos/Flutter/GeneratedPluginRegistrant.swift" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/macos/Flutter/GeneratedPluginRegistrant.swift" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/foodandes_app/pubspec.lock" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/pubspec.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/foodandes_app/pubspec.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/pubspec.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/foodandes_app/windows/flutter/generated_plugin_registrant.cc" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/windows/flutter/generated_plugin_registrant.cc" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/foodandes_app/windows/flutter/generated_plugins.cmake" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/windows/flutter/generated_plugins.cmake" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/foodandes_app/android/app/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/android/app/build.gradle.kts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -44,7 +36,7 @@
     "RunOnceActivity.readMode.enableVisualFormatting": "true",
     "cf.first.check.clang-format": "false",
     "cidr.known.project.marker": "true",
-    "git-widget-placeholder": "local-db,-caching-strategies",
+    "git-widget-placeholder": "main",
     "kotlin-language-version-configured": "true",
     "last_opened_file_path": "C:/Users/sergi/Documents/Flutter",
     "settings.editor.selected.configurable": "AndroidSdkUpdater"
