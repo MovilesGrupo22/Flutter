@@ -21,7 +21,7 @@ class LocalDatabaseService {
     final path = join(dbPath, 'restaurandes.db');
     return openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE restaurants (
@@ -44,6 +44,22 @@ class LocalDatabaseService {
             PRIMARY KEY(user_id, restaurant_id)
           )
         ''');
+        await db.execute('''
+          CREATE TABLE search_history (
+            query TEXT PRIMARY KEY,
+            searched_at INTEGER NOT NULL
+          )
+        ''');
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS search_history (
+              query TEXT PRIMARY KEY,
+              searched_at INTEGER NOT NULL
+            )
+          ''');
+        }
       },
     );
   }
@@ -161,5 +177,46 @@ class LocalDatabaseService {
   Future<void> clearRestaurants() async {
     final db = await _database;
     await db.delete('restaurants');
+  }
+
+  Future<void> insertSearchQuery(String query) async {
+    final db = await _database;
+    await db.insert(
+      'search_history',
+      {'query': query, 'searched_at': DateTime.now().millisecondsSinceEpoch},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+    // Keep only the 10 most recent unique queries
+    await db.rawDelete('''
+      DELETE FROM search_history
+      WHERE query NOT IN (
+        SELECT query FROM search_history ORDER BY searched_at DESC LIMIT 10
+      )
+    ''');
+  }
+
+  Future<List<String>> getSearchHistory() async {
+    final db = await _database;
+    final rows = await db.query(
+      'search_history',
+      columns: ['query'],
+      orderBy: 'searched_at DESC',
+      limit: 10,
+    );
+    return rows.map((r) => r['query'] as String).toList();
+  }
+
+  Future<void> deleteSearchQuery(String query) async {
+    final db = await _database;
+    await db.delete(
+      'search_history',
+      where: 'query = ?',
+      whereArgs: [query],
+    );
+  }
+
+  Future<void> clearSearchHistory() async {
+    final db = await _database;
+    await db.delete('search_history');
   }
 }
