@@ -3,26 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:foodandes_app/data/services/lru_cache.dart';
 import 'package:foodandes_app/models/restaurant.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// RestaurantService — multi-threading additions (MS5)
-//
-// STRATEGY 1 – Stream (5 pts)
-//   restaurantsStream() wraps Firestore's native .snapshots() in a Stream.
-//   Unlike a Future (one-shot), a Stream emits a new list EVERY TIME the
-//   Firestore collection changes, so the UI updates automatically without
-//   any manual pull-to-refresh.
-//
-//   Flow:
-//     Firestore ──snapshots()──► Stream<QuerySnapshot>
-//                  .map()      ──► Stream<List<Restaurant>>
-//                  HomeScreen StreamBuilder re-renders on each emission
-//
-// STRATEGY 2 – Future with handler (5 pts)
-//   getRestaurants() already returns a Future.  The .then() / .catchError()
-//   handler pattern is used inside restaurantsStream() to update the in-memory
-//   cache each time the stream emits, keeping the existing cache logic in sync.
-// ─────────────────────────────────────────────────────────────────────────────
-
 class RestaurantService {
   RestaurantService._();
   static final RestaurantService instance = RestaurantService._();
@@ -50,18 +30,6 @@ class RestaurantService {
   //
   // Returns a Stream that emits the full restaurant list whenever the
   // Firestore 'restaurants' collection changes.
-  //
-  // Key differences vs Future:
-  //   • Future  → one value then done. You must call it again to refresh.
-  //   • Stream  → continuous sequence of values. Firestore pushes updates
-  //               automatically; no polling needed.
-  //
-  // The stream is broadcast so multiple listeners (e.g. HomeScreen +
-  // SearchScreen) can subscribe without re-reading Firestore.
-  //
-  // Handler pattern (.then / .catchError — 5 pts):
-  //   We chain a Future handler on each snapshot to keep the in-memory cache
-  //   consistent.  This avoids redundant Firestore reads elsewhere in the app.
   Stream<List<Restaurant>> restaurantsStream() {
     return _firestore
         .collection('restaurants')
@@ -72,11 +40,6 @@ class RestaurantService {
               .map((doc) => Restaurant.fromFirestore(doc.id, doc.data()))
               .toList();
 
-          // Side-effect: keep the in-memory cache and LRU cache up-to-date so
-          // that getRestaurantById() and other one-shot callers still benefit
-          // from the cache without issuing a separate Firestore read.
-          // This is the Future-with-handler (then/catchError) pattern:
-          // the update is performed as a "continuation" after mapping.
           Future(() => restaurants)
               .then((list) {
                 _cache = list;
