@@ -6,8 +6,10 @@ import 'package:foodandes_app/core/constants/app_colors.dart';
 import 'package:foodandes_app/core/constants/app_strings.dart';
 import 'package:foodandes_app/data/services/analytics_service.dart';
 import 'package:foodandes_app/data/services/auth_services.dart';
+import 'package:foodandes_app/data/services/connectivity_service.dart';
 import 'package:foodandes_app/features/auth/register_screen.dart';
 import 'package:foodandes_app/features/home/home_screen.dart';
+import 'package:foodandes_app/shared/widgets/offline_protected_notice.dart';
 
 class LoginScreen extends StatefulWidget {
   static const String routeName = '/login';
@@ -26,9 +28,29 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   bool _isGoogleLoading = false;
   bool _obscurePassword = true;
+  bool _isOffline = false;
+  StreamSubscription<bool>? _connectivitySubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _initConnectivity();
+  }
+
+  Future<void> _initConnectivity() async {
+    final online = await ConnectivityService.instance.isOnline;
+    if (!mounted) return;
+    setState(() => _isOffline = !online);
+    _connectivitySubscription =
+        ConnectivityService.instance.isOnlineStream.listen((isOnline) {
+      if (!mounted) return;
+      setState(() => _isOffline = !isOnline);
+    });
+  }
 
   @override
   void dispose() {
+    _connectivitySubscription?.cancel();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -39,6 +61,11 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _handleLogin() async {
     final email = _emailController.text.trim().toLowerCase();
     final password = _passwordController.text.trim();
+
+    if (_isOffline) {
+      _showSnack('You need internet to sign in.');
+      return;
+    }
 
     if (email.isEmpty || password.isEmpty) {
       _showSnack('Please enter your email and password');
@@ -78,6 +105,11 @@ class _LoginScreenState extends State<LoginScreen> {
   // ─── Google Login ─────────────────────────────────────────────────────────
 
   Future<void> _handleGoogleLogin() async {
+    if (_isOffline) {
+      _showSnack('Google sign-in requires internet.');
+      return;
+    }
+
     setState(() => _isGoogleLoading = true);
 
     try {
@@ -116,6 +148,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _handleForgotPassword() async {
     final email = _emailController.text.trim().toLowerCase();
+
+    if (_isOffline) {
+      _showSnack('Password reset requires internet.');
+      return;
+    }
 
     if (email.isEmpty) {
       _showSnack('Enter your email above first, then tap Forgot password.');
@@ -206,6 +243,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    if (_isOffline) const OfflineProtectedNotice(
+                      message: 'Offline mode · sign in and password reset require internet',
+                    ),
+                    if (_isOffline) const SizedBox(height: 16),
                     // ── Header ──────────────────────────────────────────────
                     const Text(
                       AppStrings.appName,

@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:foodandes_app/core/constants/app_colors.dart';
 import 'package:foodandes_app/data/repositories/review_repository.dart';
+import 'package:foodandes_app/data/services/connectivity_service.dart';
+import 'package:foodandes_app/data/services/review_draft_service.dart';
 import 'package:foodandes_app/data/services/user_service.dart';
 import 'package:foodandes_app/models/user_profile.dart';
 import 'package:foodandes_app/data/services/connectivity_service.dart';
@@ -18,10 +22,13 @@ class WriteReviewScreen extends StatefulWidget {
 class _WriteReviewScreenState extends State<WriteReviewScreen> {
   final ReviewRepository _reviewRepository = ReviewRepository();
   final UserService _userService = UserService();
+  final ReviewDraftService _reviewDraftService = ReviewDraftService.instance;
   final TextEditingController _commentController = TextEditingController();
 
   int _selectedRating = 5;
   bool _isLoading = false;
+  bool _isOffline = false;
+  StreamSubscription<bool>? _connectivitySubscription;
   String? _restaurantId;
   String? _restaurantName;
   UserProfile? _profile;
@@ -38,6 +45,20 @@ class _WriteReviewScreenState extends State<WriteReviewScreen> {
     }
 
     _loadUser();
+    _loadDraft();
+    _initConnectivity();
+  }
+
+  Future<void> _initConnectivity() async {
+    final online = await ConnectivityService.instance.isOnline;
+    if (!mounted) return;
+    setState(() => _isOffline = !online);
+    await _connectivitySubscription?.cancel();
+    _connectivitySubscription =
+        ConnectivityService.instance.isOnlineStream.listen((isOnline) {
+      if (!mounted) return;
+      setState(() => _isOffline = !isOnline);
+    });
   }
 
   Future<void> _loadUser() async {
@@ -46,6 +67,25 @@ class _WriteReviewScreenState extends State<WriteReviewScreen> {
     setState(() {
       _profile = profile;
     });
+  }
+
+  Future<void> _loadDraft() async {
+    if (_restaurantId == null) return;
+    final draft = await _reviewDraftService.getDraft(_restaurantId!);
+    if (!mounted) return;
+    _commentController.text = draft['comment'] as String? ?? '';
+    setState(() {
+      _selectedRating = draft['rating'] as int? ?? 5;
+    });
+  }
+
+  Future<void> _saveDraft() async {
+    if (_restaurantId == null) return;
+    await _reviewDraftService.saveDraft(
+      restaurantId: _restaurantId!,
+      comment: _commentController.text,
+      rating: _selectedRating,
+    );
   }
 
   Future<void> _submitReview() async {
@@ -93,6 +133,7 @@ class _WriteReviewScreenState extends State<WriteReviewScreen> {
         userName: _profile!.name,
       );
 
+      await _reviewDraftService.clearDraft(_restaurantId!);
       if (!mounted) return;
       Navigator.pop(context);
     } catch (_) {
@@ -124,6 +165,7 @@ class _WriteReviewScreenState extends State<WriteReviewScreen> {
         setState(() {
           _selectedRating = value;
         });
+        unawaited(_saveDraft());
       },
       icon: Icon(
         value <= _selectedRating ? Icons.star : Icons.star_border,
@@ -134,6 +176,7 @@ class _WriteReviewScreenState extends State<WriteReviewScreen> {
 
   @override
   void dispose() {
+    _connectivitySubscription?.cancel();
     _commentController.dispose();
     super.dispose();
   }
@@ -153,6 +196,12 @@ class _WriteReviewScreenState extends State<WriteReviewScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (_isOffline)
+                const OfflineProtectedNotice(
+                  message:
+                      'Offline mode · review draft is saved locally, but submission requires internet',
+                ),
+              if (_isOffline) const SizedBox(height: 16),
               Text(
                 _restaurantName ?? 'Restaurant',
                 style: const TextStyle(
@@ -172,6 +221,7 @@ class _WriteReviewScreenState extends State<WriteReviewScreen> {
               TextField(
                 controller: _commentController,
                 maxLines: 5,
+                onChanged: (_) => unawaited(_saveDraft()),
                 decoration: const InputDecoration(
                   hintText: 'Write your review here...',
                   alignLabelWithHint: true,
@@ -195,7 +245,7 @@ class _WriteReviewScreenState extends State<WriteReviewScreen> {
                             strokeWidth: 2.5,
                           ),
                         )
-                      : const Text('Submit Review'),
+                      : Text(_isOffline ? 'Save Draft Offline' : 'Submit Review'),
                 ),
               ),
             ],

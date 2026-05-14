@@ -235,6 +235,7 @@ class _SearchEmptyScreenState extends State<SearchEmptyScreen> {
                   CustomSearchBar(
                     controller: _searchController,
                     onChanged: _onSearchChanged,
+                    onSubmitted: _saveSearchQuery,
                   ),
                   const SizedBox(height: 16),
                   Expanded(
