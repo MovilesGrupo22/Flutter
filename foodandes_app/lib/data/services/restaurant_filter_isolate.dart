@@ -67,16 +67,25 @@ List<Restaurant> _filterAndRankInIsolate(FilterParams params) {
         r.category.toLowerCase() == params.selectedCategory.toLowerCase();
 
     final matchesOpen = !params.onlyOpen || r.isOpen;
-    final matchesTopRated = !params.onlyTopRated || r.rating >= 4.5;
     final matchesPrice = params.selectedPriceRange == 'All' ||
         r.priceRange == params.selectedPriceRange;
 
     return matchesQuery &&
         matchesCategory &&
         matchesOpen &&
-        matchesTopRated &&
         matchesPrice;
   }).toList();
+
+  if (params.onlyTopRated) {
+    filtered.sort((a, b) {
+      final ratingCompare = b.rating.compareTo(a.rating);
+      if (ratingCompare != 0) return ratingCompare;
+      final reviewsCompare = b.reviewCount.compareTo(a.reviewCount);
+      if (reviewsCompare != 0) return reviewsCompare;
+      return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    });
+    return filtered;
+  }
 
   // ── Step 2: CAS mood ranking (replaces CasService.rankByMoodRelevance) ──────
   // We replicate the ranking logic here because we cannot call CasService

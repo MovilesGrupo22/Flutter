@@ -58,54 +58,6 @@ class Restaurant {
     );
   }
 
-
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'category': category,
-      'description': description,
-      'imageURL': imageURL,
-      'isOpen': isOpen,
-      'latitude': latitude,
-      'longitude': longitude,
-      'openingHours': openingHours,
-      'priceRange': priceRange,
-      'rating': rating,
-      'reviewCount': reviewCount,
-      'tags': tags,
-      'address': address,
-      'phone': phone,
-      'isFavorite': isFavorite,
-    };
-  }
-
-  factory Restaurant.fromJson(Map<String, dynamic> data) {
-    return Restaurant(
-      id: (data['id'] ?? '') as String,
-      name: (data['name'] ?? '') as String,
-      category: (data['category'] ?? '') as String,
-      description: (data['description'] ?? '') as String,
-      imageURL: (data['imageURL'] ?? data['imageUrl'] ?? data['image_url'] ?? '') as String,
-      isOpen: data['isOpen'] is bool
-          ? data['isOpen'] as bool
-          : ((data['isOpen'] ?? data['is_open'] ?? 0) == 1),
-      latitude: (data['latitude'] is num) ? (data['latitude'] as num).toDouble() : 0.0,
-      longitude: (data['longitude'] is num) ? (data['longitude'] as num).toDouble() : 0.0,
-      openingHours: (data['openingHours'] ?? data['opening_hours'] ?? '') as String,
-      priceRange: (data['priceRange'] ?? data['price_range'] ?? '') as String,
-      rating: (data['rating'] is num) ? (data['rating'] as num).toDouble() : 0.0,
-      reviewCount: (data['reviewCount'] is num)
-          ? (data['reviewCount'] as num).toInt()
-          : ((data['review_count'] is num) ? (data['review_count'] as num).toInt() : 0),
-      tags: (data['tags'] != null) ? List<String>.from(data['tags']) : <String>[],
-      address: (data['address'] ?? '') as String,
-      phone: (data['phone'] ?? '') as String,
-      isFavorite: (data['isFavorite'] ?? false) as bool,
-    );
-  }
-
   factory Restaurant.fromFirestore(String id, Map<String, dynamic> data) {
     return Restaurant(
       id: id,
