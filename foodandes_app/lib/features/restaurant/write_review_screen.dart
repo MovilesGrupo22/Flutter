@@ -6,6 +6,10 @@ import 'package:foodandes_app/data/repositories/review_repository.dart';
 import 'package:foodandes_app/data/services/connectivity_service.dart';
 import 'package:foodandes_app/data/services/review_draft_service.dart';
 import 'package:foodandes_app/data/services/user_service.dart';
+<<<<<<< Updated upstream
+=======
+import 'package:foodandes_app/data/services/pending_reviews_queue_service.dart';
+>>>>>>> Stashed changes
 import 'package:foodandes_app/models/user_profile.dart';
 import 'package:foodandes_app/shared/widgets/offline_protected_notice.dart';
 

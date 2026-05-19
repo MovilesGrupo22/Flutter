@@ -219,4 +219,55 @@ class LocalDatabaseService {
     final db = await _database;
     await db.delete('search_history');
   }
+<<<<<<< Updated upstream
+=======
+
+  Future<void> insertPendingReview({
+    required String restaurantId,
+    required String restaurantName,
+    required String comment,
+    required int rating,
+    required String userName,
+  }) async {
+    final db = await _database;
+
+    await db.insert('pending_reviews', {
+      'restaurant_id': restaurantId,
+      'restaurant_name': restaurantName,
+      'comment': comment,
+      'rating': rating,
+      'user_name': userName,
+      'created_at': DateTime.now().millisecondsSinceEpoch,
+      'retries': 0,
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> getPendingReviews() async {
+    final db = await _database;
+
+    return db.query(
+      'pending_reviews',
+      orderBy: 'created_at ASC',
+    );
+  }
+
+  Future<void> deletePendingReview(int id) async {
+    final db = await _database;
+
+    await db.delete(
+      'pending_reviews',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> incrementPendingReviewRetries(int id) async {
+    final db = await _database;
+
+    await db.rawUpdate(
+      'UPDATE pending_reviews SET retries = retries + 1 WHERE id = ?',
+      [id],
+    );
+  }
+>>>>>>> Stashed changes
 }

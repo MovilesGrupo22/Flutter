@@ -21,24 +21,6 @@ import 'package:foodandes_app/shared/widgets/custom_bottom_navbar.dart';
 import 'package:foodandes_app/shared/widgets/offline_banner.dart';
 import 'package:foodandes_app/shared/widgets/restaurant_card.dart';
 
-// =============================================================================
-// HomeScreen — Multi-threading / Concurrency strategies (MS5)
-//
-// STRATEGY 1 – Stream (5 pts)
-//   _restaurantsStream is a Stream<List<Restaurant>> from Firestore via
-//   RestaurantRepository.restaurantsStream(). A StreamBuilder in build()
-//   reacts to every new emission automatically — no manual refresh needed.
-//
-// STRATEGY 2 – Isolate via compute() (10 pts)
-//   _applyFiltersAsync() sends FilterParams to RestaurantFilterIsolate.run(),
-//   which calls Flutter's compute() to execute the filter + CAS-ranking loop
-//   on a background Dart Isolate. The UI thread stays free during computation.
-//
-// STRATEGY 3 – Future + async/await (10 pts — already present)
-//   _logHomeInteraction, _loadPopularFilters, _toggleFavorite etc. use async/
-//   await. Future.wait parallelism is used in RestaurantRepository.
-// =============================================================================
-
 class HomeScreen extends StatefulWidget {
   static const String routeName = '/home';
   const HomeScreen({super.key});
@@ -395,15 +377,6 @@ class _HomeScreenState extends State<HomeScreen> {
               // =================================================================
               // STRATEGY 1 — StreamBuilder
               //
-              // Replaces the old FutureBuilder. Key differences:
-              //   FutureBuilder  → builds once, then done.
-              //   StreamBuilder  → rebuilds on EVERY stream event (Firestore push).
-              //
-              // connectionState for a Stream:
-              //   waiting → stream open, no event yet  → show spinner
-              //   active  → at least one event received → show content
-              //   done    → stream closed (unusual for Firestore .snapshots())
-              // =================================================================
               builder: (context, snapshot) {
                 // First load only
                 if (snapshot.connectionState == ConnectionState.waiting &&
@@ -630,7 +603,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(height: 16),
 
                       DropdownButtonFormField<String>(
-                        initialValue: _selectedPriceRange,
+                        value: _selectedPriceRange,
                         decoration: const InputDecoration(
                           labelText: 'Price range',
                           border: OutlineInputBorder(),
