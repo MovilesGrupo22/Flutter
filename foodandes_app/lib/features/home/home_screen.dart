@@ -603,7 +603,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(height: 16),
 
                       DropdownButtonFormField<String>(
-                        value: _selectedPriceRange,
+                        initialValue: _selectedPriceRange,
                         decoration: const InputDecoration(
                           labelText: 'Price range',
                           border: OutlineInputBorder(),

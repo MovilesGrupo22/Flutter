@@ -72,21 +72,6 @@ class _SearchEmptyScreenState extends State<SearchEmptyScreen> {
     _onSearchChanged(query);
   }
 
-  Future<void> _saveSearchQuery(String query) async {
-    final trimmedQuery = query.trim();
-    if (trimmedQuery.isEmpty) return;
-
-    await _historyService.save(trimmedQuery);
-    await _loadHistory();
-
-    await _logSearchInteraction(
-      'search_submitted',
-      additionalParameters: {
-        'query_length': trimmedQuery.length,
-      },
-    );
-  }
-
   Future<void> _logSearchInteraction(
     String action, {
     Map<String, Object>? additionalParameters,
@@ -250,7 +235,6 @@ class _SearchEmptyScreenState extends State<SearchEmptyScreen> {
                   CustomSearchBar(
                     controller: _searchController,
                     onChanged: _onSearchChanged,
-                    onSubmitted: _saveSearchQuery,
                   ),
                   const SizedBox(height: 16),
                   Expanded(
