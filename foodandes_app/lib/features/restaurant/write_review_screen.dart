@@ -2,10 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:foodandes_app/core/constants/app_colors.dart';
 import 'package:foodandes_app/data/repositories/review_repository.dart';
 import 'package:foodandes_app/data/services/user_service.dart';
-<<<<<<< Updated upstream
-=======
-import 'package:foodandes_app/data/services/pending_reviews_queue_service.dart';
->>>>>>> Stashed changes
 import 'package:foodandes_app/models/user_profile.dart';
 
 class WriteReviewScreen extends StatefulWidget {
