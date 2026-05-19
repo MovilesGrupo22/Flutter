@@ -145,24 +145,24 @@ class AuthServices {
       'updatedAtServer': FieldValue.serverTimestamp(),
     };
 
-    try {
-      if (isNewUser) {
-        payload.addAll({
-          'favoriteRestaurants': <String>[],
-          'dietaryPreferences': <String>[],
-          'createdAt': DateTime.now().millisecondsSinceEpoch,
-          'createdAtServer': FieldValue.serverTimestamp(),
-        });
-      } else {
-        final snap = await userRef.get().timeout(const Duration(seconds: 8));
-        if (snap.exists && snap.data()?['favoriteRestaurants'] == null) {
-          payload['favoriteRestaurants'] = <String>[];
-        }
-        if (snap.exists && snap.data()?['dietaryPreferences'] == null) {
-          payload['dietaryPreferences'] = <String>[];
-        }
+    if (isNewUser) {
+      payload.addAll({
+        'favoriteRestaurants': <String>[],
+        'dietaryPreferences': <String>[],
+        'createdAt': DateTime.now().millisecondsSinceEpoch,
+        'createdAtServer': FieldValue.serverTimestamp(),
+      });
+    } else {
+      final snap = await userRef.get();
+      if (snap.exists && snap.data()?['favoriteRestaurants'] == null) {
+        payload['favoriteRestaurants'] = <String>[];
       }
+      if (snap.exists && snap.data()?['dietaryPreferences'] == null) {
+        payload['dietaryPreferences'] = <String>[];
+      }
+    }
 
+    try {
       await userRef
           .set(payload, SetOptions(merge: true))
           .timeout(const Duration(seconds: 8));

@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:foodandes_app/data/services/local_database_service.dart';
-import 'package:foodandes_app/data/services/local_snapshot_service.dart';
 import 'package:foodandes_app/data/services/lru_cache.dart';
 import 'package:foodandes_app/data/services/restaurant_service.dart';
 import 'package:foodandes_app/models/user_profile.dart';
@@ -115,46 +114,6 @@ class UserService {
         await db.removeFavorite(uid, restaurantId);
       }
     } catch (_) {}
-  }
-
-
-  Future<void> syncPendingFavoriteActions() async {
-    final uid = _uid;
-    if (uid == null) return;
-
-    final pendingActions =
-        await LocalSnapshotService.instance.loadPendingFavoriteActions(uid);
-    if (pendingActions.isEmpty) return;
-
-    final userRef = _firestore.collection('users').doc(uid);
-    final snapshot = await userRef.get();
-    final data = snapshot.data() ?? {};
-    final favorites = List<String>.from(data['favoriteRestaurants'] ?? []);
-
-    for (final action in pendingActions) {
-      final restaurantId = action['restaurantId'] as String?;
-      final desiredState = action['desiredState'] as bool?;
-      if (restaurantId == null || desiredState == null) continue;
-
-      if (desiredState && !favorites.contains(restaurantId)) {
-        favorites.add(restaurantId);
-      } else if (!desiredState) {
-        favorites.remove(restaurantId);
-      }
-    }
-
-    await userRef.set(
-      {'favoriteRestaurants': favorites},
-      SetOptions(merge: true),
-    );
-
-    await LocalSnapshotService.instance.saveFavoriteRestaurantIds(
-      uid: uid,
-      favoriteIds: favorites,
-    );
-    await LocalSnapshotService.instance.clearPendingFavoriteActions(uid);
-    _profileCache.remove(uid);
-    RestaurantService.instance.invalidateCache();
   }
 
   /// Removes the cached profile for the current user.
