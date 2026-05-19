@@ -67,13 +67,6 @@ class _SearchEmptyScreenState extends State<SearchEmptyScreen> {
     await _loadHistory();
   }
 
-  Future<void> _saveSearchQuery(String query) async {
-    final trimmed = query.trim();
-    if (trimmed.isEmpty) return;
-    await _historyService.save(trimmed);
-    await _loadHistory();
-  }
-
   void _applyHistoryQuery(String query) {
     _searchController.text = query;
     _onSearchChanged(query);

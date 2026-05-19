@@ -6,10 +6,7 @@ import 'package:foodandes_app/data/repositories/review_repository.dart';
 import 'package:foodandes_app/data/services/connectivity_service.dart';
 import 'package:foodandes_app/data/services/review_draft_service.dart';
 import 'package:foodandes_app/data/services/user_service.dart';
-<<<<<<< Updated upstream
-=======
 import 'package:foodandes_app/data/services/pending_reviews_queue_service.dart';
->>>>>>> Stashed changes
 import 'package:foodandes_app/models/user_profile.dart';
 import 'package:foodandes_app/shared/widgets/offline_protected_notice.dart';
 
@@ -94,20 +91,9 @@ class _WriteReviewScreenState extends State<WriteReviewScreen> {
   Future<void> _submitReview() async {
     if (_restaurantId == null || _profile == null) return;
 
-    if (_isOffline) {
-      await _saveDraft();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Offline mode: your draft was saved locally. Connect to submit the review.',
-          ),
-        ),
-      );
-      return;
-    }
+    final comment = _commentController.text.trim();
 
-    if (_commentController.text.trim().isEmpty) {
+    if (comment.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please write a comment')),
       );
@@ -117,9 +103,32 @@ class _WriteReviewScreenState extends State<WriteReviewScreen> {
     setState(() => _isLoading = true);
 
     try {
+      final isOnline = await ConnectivityService.instance.isOnline;
+
+      if (!isOnline) {
+        await PendingReviewsQueueService.instance.enqueueReview(
+          restaurantId: _restaurantId!,
+          restaurantName: _restaurantName ?? 'Restaurant',
+          comment: comment,
+          rating: _selectedRating,
+          userName: _profile!.name,
+        );
+
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('You are offline. Your review will be sent when connection returns.'),
+          ),
+        );
+
+        Navigator.pop(context);
+        return;
+      }
+
       await _reviewRepository.addReview(
         restaurantId: _restaurantId!,
-        comment: _commentController.text.trim(),
+        comment: comment,
         rating: _selectedRating,
         userName: _profile!.name,
       );
@@ -128,10 +137,23 @@ class _WriteReviewScreenState extends State<WriteReviewScreen> {
       if (!mounted) return;
       Navigator.pop(context);
     } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error submitting review')),
+      await PendingReviewsQueueService.instance.enqueueReview(
+        restaurantId: _restaurantId!,
+        restaurantName: _restaurantName ?? 'Restaurant',
+        comment: comment,
+        rating: _selectedRating,
+        userName: _profile!.name,
       );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Connection failed. Your review was saved and will sync later.'),
+        ),
+      );
+
+      Navigator.pop(context);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

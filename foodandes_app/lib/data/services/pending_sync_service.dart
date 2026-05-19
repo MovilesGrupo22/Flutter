@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:foodandes_app/data/services/connectivity_service.dart';
-import 'package:foodandes_app/data/services/review_service.dart';
+import 'package:foodandes_app/data/services/pending_reviews_queue_service.dart';
 import 'package:foodandes_app/data/services/user_service.dart';
 
 class PendingSyncService {
@@ -18,9 +18,8 @@ class PendingSyncService {
     if (_started) return;
     _started = true;
 
-    await ConnectivityService.instance.start();
     var firstEvent = true;
-    _subscription = ConnectivityService.instance.onlineStream.listen((isOnline) {
+    _subscription = ConnectivityService.instance.isOnlineStream.listen((isOnline) {
       if (firstEvent) {
         firstEvent = false;
         return;
@@ -30,7 +29,7 @@ class PendingSyncService {
       }
     });
 
-    if (await ConnectivityService.instance.isOnline()) {
+    if (await ConnectivityService.instance.isOnline) {
       Future<void>.delayed(const Duration(seconds: 2), () => syncAllPending());
     }
   }
@@ -41,7 +40,7 @@ class PendingSyncService {
     try {
       await Future.wait([
         UserService().syncPendingFavoriteActions(),
-        ReviewService().syncPendingReviews(),
+        PendingReviewsQueueService.instance.syncPendingReviews(),
       ]);
     } catch (e) {
       debugPrint('PendingSyncService.syncAllPending ERROR -> $e');
