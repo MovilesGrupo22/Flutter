@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:foodandes_app/core/constants/app_colors.dart';
 import 'package:foodandes_app/models/restaurant.dart';
@@ -41,16 +40,10 @@ class RestaurantCard extends StatelessWidget {
               children: [
                 AspectRatio(
                   aspectRatio: 16 / 10,
-                  child: CachedNetworkImage(
-                    imageUrl: restaurant.imageURL,
+                  child: Image.network(
+                    restaurant.imageURL,
                     fit: BoxFit.cover,
-                    placeholder: (context, url) => Container(
-                      color: Colors.grey.shade300,
-                      child: const Center(
-                        child: CircularProgressIndicator(),
-                      ),
-                    ),
-                    errorWidget: (context, url, error) => Container(
+                    errorBuilder: (_, __, ___) => Container(
                       color: Colors.grey.shade300,
                       child: const Center(
                         child: Icon(Icons.image_not_supported, size: 40),

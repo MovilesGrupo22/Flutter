@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:foodandes_app/core/constants/app_colors.dart';
 import 'package:foodandes_app/data/services/auth_services.dart';
-import 'package:foodandes_app/shared/widgets/app_cached_image.dart';
 import 'package:foodandes_app/data/services/user_service.dart';
 import 'package:foodandes_app/data/services/review_service.dart';
 import 'package:foodandes_app/features/auth/login_screen.dart';
@@ -116,32 +115,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           child: CircleAvatar(
                             radius: 40,
                             backgroundColor: AppColors.primary,
-                            child: profile.photoURL.isNotEmpty
-                                ? AppCachedImage(
-                                    imageUrl: profile.photoURL,
-                                    width: 80,
-                                    height: 80,
-                                    fit: BoxFit.cover,
-                                    borderRadius: BorderRadius.circular(40),
-                                    errorWidget: Center(
-                                      child: Text(
-                                        initials.toUpperCase(),
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 28,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ),
-                                  )
-                                : Text(
+                            backgroundImage: profile.photoURL.isNotEmpty
+                                ? NetworkImage(profile.photoURL)
+                                : null,
+                            child: profile.photoURL.isEmpty
+                                ? Text(
                                     initials.toUpperCase(),
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 28,
                                       fontWeight: FontWeight.w700,
                                     ),
-                                  ),
+                                  )
+                                : null,
                           ),
                         ),
                         const SizedBox(height: 18),

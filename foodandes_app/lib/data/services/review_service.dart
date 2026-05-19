@@ -6,21 +6,6 @@ class ReviewService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  Stream<List<Review>> watchReviewsByRestaurant(String restaurantId) {
-    return _firestore
-        .collection('reviews')
-        .where('restaurantId', isEqualTo: restaurantId)
-        .snapshots()
-        .map((snapshot) {
-      final reviews = snapshot.docs
-          .map((doc) => Review.fromFirestore(doc.id, doc.data()))
-          .toList();
-
-      reviews.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-      return reviews;
-    });
-  }
-
   Future<List<Review>> getReviewsByRestaurant(String restaurantId) async {
     final snapshot = await _firestore
         .collection('reviews')
@@ -34,6 +19,7 @@ class ReviewService {
     reviews.sort((a, b) => b.timestamp.compareTo(a.timestamp));
     return reviews;
   }
+
 
   Future<int> getCurrentUserReviewCount() async {
     final currentUser = _auth.currentUser;

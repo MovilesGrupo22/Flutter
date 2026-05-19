@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:foodandes_app/data/repositories/restaurant_repository.dart';
-import 'package:foodandes_app/data/services/search_history_service.dart';
 import 'package:foodandes_app/features/restaurant/restaurant_detail_screen.dart';
 import 'package:foodandes_app/models/restaurant.dart';
 import 'package:foodandes_app/shared/widgets/custom_bottom_navbar.dart';
@@ -23,14 +22,12 @@ class SearchEmptyScreen extends StatefulWidget {
 
 class _SearchEmptyScreenState extends State<SearchEmptyScreen> {
   final RestaurantRepository _repository = RestaurantRepository();
-  final SearchHistoryService _historyService = SearchHistoryService.instance;
   final TextEditingController _searchController = TextEditingController();
 
   late Future<List<Restaurant>> _allRestaurantsFuture;
 
   List<Restaurant> _allRestaurants = [];
   List<Restaurant> _filteredRestaurants = [];
-  List<String> _searchHistory = [];
   bool _isLoadingRestaurants = true;
   Timer? _searchAnalyticsDebounce;
   String _lastTrackedQuery = '';
@@ -39,7 +36,6 @@ class _SearchEmptyScreenState extends State<SearchEmptyScreen> {
   void initState() {
     super.initState();
     _loadRestaurants();
-    _loadHistory();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final userId = FirebaseAuth.instance.currentUser?.uid;
@@ -49,34 +45,6 @@ class _SearchEmptyScreenState extends State<SearchEmptyScreen> {
         userId: userId,
       );
     });
-  }
-
-  Future<void> _loadHistory() async {
-    final history = await _historyService.getAll();
-    if (!mounted) return;
-    setState(() => _searchHistory = history);
-  }
-
-  Future<void> _deleteHistoryItem(String query) async {
-    await _historyService.delete(query);
-    await _loadHistory();
-  }
-
-  Future<void> _clearHistory() async {
-    await _historyService.clear();
-    await _loadHistory();
-  }
-
-  Future<void> _saveSearchQuery(String query) async {
-    final trimmed = query.trim();
-    if (trimmed.isEmpty) return;
-    await _historyService.save(trimmed);
-    await _loadHistory();
-  }
-
-  void _applyHistoryQuery(String query) {
-    _searchController.text = query;
-    _onSearchChanged(query);
   }
 
   Future<void> _logSearchInteraction(
@@ -189,40 +157,6 @@ class _SearchEmptyScreenState extends State<SearchEmptyScreen> {
     super.dispose();
   }
 
-  Widget _buildSearchHistory() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Recent searches',
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-            ),
-            TextButton(
-              onPressed: _clearHistory,
-              child: const Text('Clear all'),
-            ),
-          ],
-        ),
-        Wrap(
-          spacing: 8,
-          runSpacing: 4,
-          children: _searchHistory.map((query) {
-            return InputChip(
-              label: Text(query),
-              avatar: const Icon(Icons.history, size: 16),
-              deleteIcon: const Icon(Icons.close, size: 16),
-              onDeleted: () => _deleteHistoryItem(query),
-              onPressed: () => _applyHistoryQuery(query),
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final query = _searchController.text.trim();
@@ -242,19 +176,16 @@ class _SearchEmptyScreenState extends State<SearchEmptyScreen> {
                   CustomSearchBar(
                     controller: _searchController,
                     onChanged: _onSearchChanged,
-                    onSubmitted: _saveSearchQuery,
                   ),
                   const SizedBox(height: 16),
                   Expanded(
                     child: !hasQuery
-                        ? _searchHistory.isEmpty
-                            ? const EmptyStateWidget(
-                                icon: Icons.search,
-                                title: 'Start typing to search',
-                                subtitle:
-                                    'Find restaurants by name, category, tag, or address',
-                              )
-                            : _buildSearchHistory()
+                        ? const EmptyStateWidget(
+                            icon: Icons.search,
+                            title: 'Start typing to search',
+                            subtitle:
+                                'Find restaurants by name, category, tag, or address',
+                          )
                         : _filteredRestaurants.isEmpty
                             ? const EmptyStateWidget(
                                 icon: Icons.search_off,
@@ -281,17 +212,14 @@ class _SearchEmptyScreenState extends State<SearchEmptyScreen> {
                                         onFavoriteTap: () =>
                                             _toggleFavorite(restaurant),
                                         onTap: () async {
-                                          final nav = Navigator.of(context);
-                                          await _historyService.save(
-                                            _searchController.text,
-                                          );
                                           await _logSearchInteraction(
                                             'open_search_result',
                                             additionalParameters: {
                                               'restaurant_id': restaurant.id,
                                             },
                                           );
-                                          await nav.pushNamed(
+                                          await Navigator.pushNamed(
+                                            context,
                                             RestaurantDetailScreen.routeName,
                                             arguments: restaurant.id,
                                           );

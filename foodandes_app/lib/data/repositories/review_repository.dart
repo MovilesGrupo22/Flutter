@@ -21,8 +21,4 @@ class ReviewRepository {
       userName: userName,
     );
   }
-
-  Stream<List<Review>> watchReviewsByRestaurant(String restaurantId) {
-    return _reviewService.watchReviewsByRestaurant(restaurantId);
-  }
 }
