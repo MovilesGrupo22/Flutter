@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:foodandes_app/core/constants/app_colors.dart';
 import 'package:foodandes_app/core/utils/map_launcher_helper.dart';
@@ -149,6 +151,10 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
           if (restaurant != null && _lastLoggedRestaurantId != restaurant.id) {
             _lastLoggedRestaurantId = restaurant.id;
             final userId = FirebaseAuth.instance.currentUser?.uid;
+
+            unawaited(
+              LocalDatabaseService.instance.recordRecentlyViewed(restaurant),
+            );
 
             AnalyticsService.instance.logRestaurantView(
               restaurantId: restaurant.id,

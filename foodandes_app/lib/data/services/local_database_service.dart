@@ -22,7 +22,7 @@ class LocalDatabaseService {
 
     return openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE restaurants (
@@ -49,11 +49,15 @@ class LocalDatabaseService {
 
         await _createSearchHistoryTable(db);
         await _createPendingReviewsTable(db);
+        await _createRecentlyViewedTable(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
           await _createSearchHistoryTable(db);
           await _createPendingReviewsTable(db);
+        }
+        if (oldVersion < 3) {
+          await _createRecentlyViewedTable(db);
         }
       },
     );
@@ -79,6 +83,15 @@ class LocalDatabaseService {
         user_name TEXT NOT NULL,
         created_at INTEGER NOT NULL,
         retries INTEGER DEFAULT 0
+      )
+    ''');
+  }
+
+  Future<void> _createRecentlyViewedTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS recently_viewed (
+        restaurant_id TEXT PRIMARY KEY,
+        viewed_at INTEGER NOT NULL
       )
     ''');
   }
@@ -258,6 +271,70 @@ class LocalDatabaseService {
   Future<void> clearSearchHistory() async {
     final db = await _database;
     await db.delete('search_history');
+  }
+
+  Future<void> recordRecentlyViewed(Restaurant restaurant) async {
+    final db = await _database;
+
+    await insertRestaurants([restaurant]);
+
+    await db.insert(
+      'recently_viewed',
+      {
+        'restaurant_id': restaurant.id,
+        'viewed_at': DateTime.now().millisecondsSinceEpoch,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+
+    await db.rawDelete('''
+      DELETE FROM recently_viewed
+      WHERE restaurant_id NOT IN (
+        SELECT restaurant_id FROM recently_viewed
+        ORDER BY viewed_at DESC
+        LIMIT 20
+      )
+    ''');
+  }
+
+  Future<List<Restaurant>> getRecentlyViewedRestaurants() async {
+    final db = await _database;
+
+    final rows = await db.rawQuery('''
+      SELECT r.*
+      FROM recently_viewed rv
+      INNER JOIN restaurants r ON r.id = rv.restaurant_id
+      ORDER BY rv.viewed_at DESC
+      LIMIT 20
+    ''');
+
+    return rows.map((row) {
+      final tagsJson = row['tags_json'] as String? ?? '[]';
+      final tags = (jsonDecode(tagsJson) as List).cast<String>();
+
+      return Restaurant(
+        id: row['id'] as String,
+        name: row['name'] as String? ?? '',
+        category: row['category'] as String? ?? '',
+        description: '',
+        imageURL: row['image_url'] as String? ?? '',
+        isOpen: (row['is_open'] as int? ?? 0) == 1,
+        latitude: 0.0,
+        longitude: 0.0,
+        openingHours: '',
+        priceRange: row['price_range'] as String? ?? '',
+        rating: (row['rating'] as num?)?.toDouble() ?? 0.0,
+        reviewCount: 0,
+        tags: tags,
+        address: row['address'] as String? ?? '',
+        phone: '',
+      );
+    }).toList();
+  }
+
+  Future<void> clearRecentlyViewed() async {
+    final db = await _database;
+    await db.delete('recently_viewed');
   }
 
   Future<void> insertPendingReview({
