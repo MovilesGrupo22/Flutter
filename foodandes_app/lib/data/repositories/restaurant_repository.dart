@@ -100,16 +100,22 @@ class RestaurantRepository {
           r.category.toLowerCase() == selectedCategory.toLowerCase();
 
       final matchesOpen = !onlyOpen || r.isOpen;
-      final matchesTopRated = !onlyTopRated || r.rating >= 4.5;
       final matchesPrice =
           selectedPriceRange == 'All' || r.priceRange == selectedPriceRange;
 
       return matchesQuery &&
           matchesCategory &&
           matchesOpen &&
-          matchesTopRated &&
           matchesPrice;
-    }).toList();
+    }).toList()
+      ..sort((a, b) {
+        if (!onlyTopRated) return 0;
+        final ratingCompare = b.rating.compareTo(a.rating);
+        if (ratingCompare != 0) return ratingCompare;
+        final reviewsCompare = b.reviewCount.compareTo(a.reviewCount);
+        if (reviewsCompare != 0) return reviewsCompare;
+        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      });
   }
 
   List<String> extractCategories(List<Restaurant> restaurants) {
