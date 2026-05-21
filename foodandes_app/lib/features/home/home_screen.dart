@@ -13,6 +13,7 @@ import 'package:foodandes_app/data/services/restaurant_filter_isolate.dart';
 import 'package:foodandes_app/data/services/trending_restaurants_service.dart';
 import 'package:foodandes_app/features/home/widgets/cas_dining_banner.dart';
 import 'package:foodandes_app/features/profile/profile_screen.dart';
+import 'package:foodandes_app/features/recently_viewed/recently_viewed_screen.dart';
 import 'package:foodandes_app/features/restaurant/restaurant_detail_screen.dart';
 import 'package:foodandes_app/features/search/search_empty_screen.dart';
 import 'package:foodandes_app/models/restaurant.dart';
@@ -39,10 +40,13 @@ class _HomeScreenState extends State<HomeScreen> {
   final RestaurantRepository _repository = RestaurantRepository();
 
   List<Restaurant> _allRestaurants = [];
+  Object? _restaurantLoadError;
+  bool _isInitialRestaurantsLoading = true;
 
   // ── STRATEGY 2: Isolate — results written here after compute() returns ──────
   List<Restaurant> _filteredRestaurants = [];
   bool _isFiltering = false; // shows a tiny spinner in AppBar while isolate runs
+  int _filterRunId = 0;
 
   List<Restaurant> _trendingRestaurants = [];
   bool _isTrendingLoading = true;
@@ -51,6 +55,8 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _onlyOpen = false;
   bool _onlyTopRated = false;
   String _selectedPriceRange = 'All';
+  List<String> _categoryOptions = const ['All'];
+  List<String> _priceOptions = const ['All'];
 
   List<String> _topCategories = [];
   List<String> _topPriceRanges = [];
@@ -68,19 +74,25 @@ class _HomeScreenState extends State<HomeScreen> {
     // ── STRATEGY 1: open the Firestore-backed Stream ─────────────────────────
     _restaurantsStream = _repository.restaurantsStream();
 
-    // Manual subscription so we can react to new data (trigger Isolate filter,
-    // refresh trending list, persist to SQLite) in addition to the StreamBuilder.
+    // Manual subscription so Home has a single source of state. This avoids
+    // rebuilding once from StreamBuilder and again from setState.
     _streamSubscription = _restaurantsStream.listen(
       (restaurants) {
         if (!mounted) return;
-        setState(() => _allRestaurants = restaurants);
+        _setRestaurants(restaurants);
         _applyFiltersAsync();                                     // Isolate
         _loadTrendingRestaurants(sourceRestaurants: restaurants); // Future
         // Keep SQLite in sync so offline access always has fresh data.
-        LocalDatabaseService.instance.insertRestaurants(restaurants);
+        unawaited(LocalDatabaseService.instance.insertRestaurants(restaurants));
       },
       onError: (Object e) {
         debugPrint('HomeScreen stream ERROR -> $e');
+        if (mounted) {
+          setState(() {
+            _restaurantLoadError = e;
+            _isInitialRestaurantsLoading = false;
+          });
+        }
         _loadFromLocalIfOffline();
       },
     );
@@ -110,6 +122,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ── Connectivity ────────────────────────────────────────────────────────────
 
+  void _setRestaurants(List<Restaurant> restaurants) {
+    setState(() {
+      _allRestaurants = restaurants;
+      _categoryOptions = _repository.extractCategories(restaurants);
+      _priceOptions = _repository.extractPriceRanges(restaurants);
+      _restaurantLoadError = null;
+      _isInitialRestaurantsLoading = false;
+    });
+  }
+
   void _initConnectivity() {
     _connectivitySubscription = ConnectivityService.instance.isOnlineStream.listen(
       (isOnline) {
@@ -132,7 +154,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!online && _allRestaurants.isEmpty) {
       final cached = await LocalDatabaseService.instance.getRestaurants();
       if (!mounted) return;
-      setState(() => _allRestaurants = cached);
+      _setRestaurants(cached);
       _applyFiltersAsync();
     }
   }
@@ -163,7 +185,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _applyFiltersAsync() async {
     if (_allRestaurants.isEmpty) return;
 
-    setState(() => _isFiltering = true);
+    final runId = ++_filterRunId;
+    if (!_isFiltering) {
+      setState(() => _isFiltering = true);
+    }
 
     final mood = CasService.instance.getDiningMood();
 
@@ -182,7 +207,7 @@ class _HomeScreenState extends State<HomeScreen> {
     // Runs on a background Isolate — main thread stays responsive
     final result = await RestaurantFilterIsolate.run(params);
 
-    if (!mounted) return;
+    if (!mounted || runId != _filterRunId) return;
     setState(() {
       _filteredRestaurants = result;
       _isFiltering = false;
@@ -330,6 +355,332 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ── Build ───────────────────────────────────────────────────────────────────
 
+  Widget _buildHomeContent() {
+    if (_isInitialRestaurantsLoading && _allRestaurants.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_restaurantLoadError != null && _allRestaurants.isEmpty) {
+      return Center(
+        child: Text('Error loading restaurants: $_restaurantLoadError'),
+      );
+    }
+
+    if (_filteredRestaurants.isEmpty && _allRestaurants.isEmpty) {
+      return const Center(child: Text('No restaurants available'));
+    }
+
+    final headerWidgets = _buildHeaderWidgets();
+    final itemCount = headerWidgets.length +
+        (_filteredRestaurants.isEmpty ? 1 : _filteredRestaurants.length);
+
+    return RefreshIndicator(
+      onRefresh: () async => _applyFiltersAsync(),
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: itemCount,
+        itemBuilder: (context, index) {
+          if (index < headerWidgets.length) {
+            return headerWidgets[index];
+          }
+
+          if (_filteredRestaurants.isEmpty) {
+            return const Padding(
+              padding: EdgeInsets.only(top: 40),
+              child: Center(
+                child: Text('No restaurants match the selected filters'),
+              ),
+            );
+          }
+
+          final restaurant = _filteredRestaurants[index - headerWidgets.length];
+          return _buildRestaurantListItem(context, restaurant);
+        },
+      ),
+    );
+  }
+
+  List<Widget> _buildHeaderWidgets() {
+    return [
+      CasDiningBanner(
+        onCategoryTap: (category) async {
+          _selectedCategory = category;
+          _applyFiltersAsync();
+          PreferencesService.instance.saveSelectedCategory(category);
+          await _logFilter(filterType: 'category', filterValue: category);
+        },
+      ),
+      ..._buildTrendingWidgets(),
+      const Text(
+        'Filters',
+        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+      ),
+      ..._buildPopularFilterWidgets(),
+      const SizedBox(height: 12),
+      _buildCategoryFilters(),
+      const SizedBox(height: 16),
+      _buildPriceFilter(),
+      const SizedBox(height: 16),
+    ];
+  }
+
+  List<Widget> _buildTrendingWidgets() {
+    if (_isTrendingLoading) {
+      return const [
+        SizedBox(height: 8),
+        Center(child: CircularProgressIndicator()),
+      ];
+    }
+
+    if (_trendingRestaurants.isEmpty) return const [];
+
+    return [
+      const SizedBox(height: 8),
+      const Text(
+        'Trending now on campus',
+        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+      ),
+      const SizedBox(height: 10),
+      SizedBox(
+        height: 340,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: _trendingRestaurants.length,
+          separatorBuilder: (context, index) => const SizedBox(width: 12),
+          itemBuilder: (context, index) {
+            final restaurant = _trendingRestaurants[index];
+            return SizedBox(
+              width: 280,
+              child: RepaintBoundary(
+                child: RestaurantCard(
+                  restaurant: restaurant,
+                  compact: true,
+                  showFavoriteIcon: true,
+                  favoriteFilled: restaurant.isFavorite,
+                  onFavoriteTap: () => _toggleFavorite(restaurant),
+                  onTap: () async {
+                    await _logHomeInteraction(
+                      'open_trending_restaurant',
+                      additionalParameters: {'restaurant_id': restaurant.id},
+                    );
+                    if (!context.mounted) return;
+                    await Navigator.pushNamed(
+                      context,
+                      RestaurantDetailScreen.routeName,
+                      arguments: restaurant.id,
+                    );
+                  },
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+      const SizedBox(height: 16),
+    ];
+  }
+
+  List<Widget> _buildPopularFilterWidgets() {
+    if (_topCategories.isEmpty &&
+        _topPriceRanges.isEmpty &&
+        _topQuickChips.isEmpty) {
+      return const [];
+    }
+
+    final chips = <Widget>[];
+    for (final chip in _topQuickChips) {
+      if (chips.length >= 3) break;
+      chips.add(ActionChip(
+        label: Text(chip),
+        avatar: const Icon(
+          Icons.local_fire_department,
+          size: 14,
+          color: Colors.deepOrange,
+        ),
+        onPressed: () async {
+          if (chip == 'Open') {
+            _onlyOpen = true;
+            PreferencesService.instance.saveOnlyOpen(true);
+          }
+          if (chip == 'Top Rated') {
+            _onlyTopRated = true;
+            PreferencesService.instance.saveOnlyTopRated(true);
+          }
+          _applyFiltersAsync();
+          await _logFilter(filterType: 'quick_chip', filterValue: chip);
+        },
+      ));
+    }
+    for (final category in _topCategories) {
+      if (chips.length >= 3) break;
+      chips.add(ActionChip(
+        label: Text(category),
+        avatar: const Icon(
+          Icons.restaurant,
+          size: 14,
+          color: Colors.deepOrange,
+        ),
+        onPressed: () async {
+          _selectedCategory = category;
+          _applyFiltersAsync();
+          PreferencesService.instance.saveSelectedCategory(category);
+          await _logFilter(filterType: 'category', filterValue: category);
+        },
+      ));
+    }
+    for (final price in _topPriceRanges) {
+      if (chips.length >= 3) break;
+      chips.add(ActionChip(
+        label: Text(price),
+        avatar: const Icon(
+          Icons.attach_money,
+          size: 14,
+          color: Colors.green,
+        ),
+        onPressed: () async {
+          _selectedPriceRange = price;
+          _applyFiltersAsync();
+          PreferencesService.instance.saveSelectedPriceRange(price);
+          await _logFilter(filterType: 'price_range', filterValue: price);
+        },
+      ));
+    }
+
+    return [
+      const SizedBox(height: 10),
+      const Text(
+        'Most used',
+        style: TextStyle(
+          fontSize: 13,
+          color: Colors.grey,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      const SizedBox(height: 8),
+      Wrap(spacing: 8, runSpacing: 4, children: chips),
+      const Divider(height: 20),
+    ];
+  }
+
+  Widget _buildCategoryFilters() {
+    return SizedBox(
+      height: 44,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: [
+          CategoryChip(
+            label: 'All',
+            selected:
+                !_onlyOpen && !_onlyTopRated && _selectedCategory == 'All',
+            onTap: () async {
+              _selectedCategory = 'All';
+              _onlyOpen = false;
+              _onlyTopRated = false;
+              _applyFiltersAsync();
+              PreferencesService.instance.saveSelectedCategory('All');
+              PreferencesService.instance.saveOnlyOpen(false);
+              PreferencesService.instance.saveOnlyTopRated(false);
+              await _logFilter(filterType: 'quick_chip', filterValue: 'All');
+            },
+          ),
+          CategoryChip(
+            label: 'Open',
+            selected: _onlyOpen,
+            onTap: () async {
+              _onlyOpen = !_onlyOpen;
+              _applyFiltersAsync();
+              PreferencesService.instance.saveOnlyOpen(_onlyOpen);
+              await _logFilter(
+                filterType: 'quick_chip',
+                filterValue: _onlyOpen ? 'Open' : 'Open_Off',
+              );
+            },
+          ),
+          CategoryChip(
+            label: 'Top Rated',
+            selected: _onlyTopRated,
+            onTap: () async {
+              _onlyTopRated = !_onlyTopRated;
+              _applyFiltersAsync();
+              PreferencesService.instance.saveOnlyTopRated(_onlyTopRated);
+              await _logFilter(
+                filterType: 'quick_chip',
+                filterValue: _onlyTopRated ? 'Top Rated' : 'Top Rated_Off',
+              );
+            },
+          ),
+          ..._categoryOptions.where((c) => c != 'All').map(
+                (category) => CategoryChip(
+                  label: category,
+                  selected: _selectedCategory == category,
+                  onTap: () async {
+                    _selectedCategory =
+                        _selectedCategory == category ? 'All' : category;
+                    _applyFiltersAsync();
+                    PreferencesService.instance
+                        .saveSelectedCategory(_selectedCategory);
+                    await _logFilter(
+                      filterType: 'category',
+                      filterValue: _selectedCategory,
+                    );
+                  },
+                ),
+              ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPriceFilter() {
+    return DropdownButtonFormField<String>(
+      initialValue: _selectedPriceRange,
+      decoration: const InputDecoration(
+        labelText: 'Price range',
+        border: OutlineInputBorder(),
+      ),
+      items: _priceOptions
+          .map((price) => DropdownMenuItem(value: price, child: Text(price)))
+          .toList(),
+      onChanged: (value) async {
+        if (value == null) return;
+        _selectedPriceRange = value;
+        _applyFiltersAsync();
+        PreferencesService.instance.saveSelectedPriceRange(value);
+        await _logFilter(filterType: 'price_range', filterValue: value);
+      },
+    );
+  }
+
+  Widget _buildRestaurantListItem(
+    BuildContext context,
+    Restaurant restaurant,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 18),
+      child: RepaintBoundary(
+        child: RestaurantCard(
+          key: ValueKey(restaurant.id),
+          restaurant: restaurant,
+          showFavoriteIcon: true,
+          favoriteFilled: restaurant.isFavorite,
+          onFavoriteTap: () => _toggleFavorite(restaurant),
+          onTap: () async {
+            await _logHomeInteraction(
+              'open_restaurant_from_home',
+              additionalParameters: {'restaurant_id': restaurant.id},
+            );
+            if (!context.mounted) return;
+            await Navigator.pushNamed(
+              context,
+              RestaurantDetailScreen.routeName,
+              arguments: restaurant.id,
+            );
+          },
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -352,13 +703,24 @@ class _HomeScreenState extends State<HomeScreen> {
           IconButton(
             onPressed: () async {
               await _logHomeInteraction('open_search_from_home');
+              if (!context.mounted) return;
               await Navigator.pushNamed(context, SearchEmptyScreen.routeName);
             },
             icon: const Icon(Icons.search),
           ),
           IconButton(
+            tooltip: 'Recently viewed',
+            onPressed: () async {
+              await _logHomeInteraction('open_recently_viewed_from_home');
+              if (!context.mounted) return;
+              await Navigator.pushNamed(context, RecentlyViewedScreen.routeName);
+            },
+            icon: const Icon(Icons.history),
+          ),
+          IconButton(
             onPressed: () async {
               await _logHomeInteraction('open_profile_from_home');
+              if (!context.mounted) return;
               await Navigator.pushNamed(context, ProfileScreen.routeName);
             },
             icon: const Icon(Icons.person_outline),
@@ -371,295 +733,7 @@ class _HomeScreenState extends State<HomeScreen> {
       body: Column(
         children: [
           OfflineBanner(isOffline: _isOffline),
-          Expanded(
-            child: StreamBuilder<List<Restaurant>>(
-              stream: _restaurantsStream,
-              // =================================================================
-              // STRATEGY 1 — StreamBuilder
-              //
-              builder: (context, snapshot) {
-                // First load only
-                if (snapshot.connectionState == ConnectionState.waiting &&
-                    _allRestaurants.isEmpty) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                if (snapshot.hasError && _allRestaurants.isEmpty) {
-                  return Center(
-                    child: Text('Error loading restaurants: ${snapshot.error}'),
-                  );
-                }
-
-                final categoryOptions = _repository.extractCategories(_allRestaurants);
-                final priceOptions = _repository.extractPriceRanges(_allRestaurants);
-
-                if (_filteredRestaurants.isEmpty && _allRestaurants.isEmpty) {
-                  return const Center(child: Text('No restaurants available'));
-                }
-
-                return RefreshIndicator(
-                  onRefresh: () async => _applyFiltersAsync(),
-                  child: ListView(
-                    padding: const EdgeInsets.all(16),
-                    children: [
-                      CasDiningBanner(
-                        onCategoryTap: (category) async {
-                          _selectedCategory = category;
-                          _applyFiltersAsync(); // Isolate
-                          PreferencesService.instance.saveSelectedCategory(category);
-                          await _logFilter(filterType: 'category', filterValue: category);
-                        },
-                      ),
-
-                      // ── Trending ────────────────────────────────────────────
-                      if (_isTrendingLoading) ...[
-                        const SizedBox(height: 8),
-                        const Center(child: CircularProgressIndicator()),
-                      ] else if (_trendingRestaurants.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        const Text(
-                          '🔥 Trending now on campus',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                        ),
-                        const SizedBox(height: 10),
-                        SizedBox(
-                          height: 340,
-                          child: ListView.separated(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: _trendingRestaurants.length,
-                            separatorBuilder: (_, __) => const SizedBox(width: 12),
-                            itemBuilder: (context, index) {
-                              final r = _trendingRestaurants[index];
-                              return SizedBox(
-                                width: 280,
-                                child: RestaurantCard(
-                                  restaurant: r,
-                                  compact: true,
-                                  showFavoriteIcon: true,
-                                  favoriteFilled: r.isFavorite,
-                                  onFavoriteTap: () => _toggleFavorite(r),
-                                  onTap: () async {
-                                    await _logHomeInteraction(
-                                      'open_trending_restaurant',
-                                      additionalParameters: {'restaurant_id': r.id},
-                                    );
-                                    await Navigator.pushNamed(
-                                      context,
-                                      RestaurantDetailScreen.routeName,
-                                      arguments: r.id,
-                                    );
-                                  },
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-
-                      // ── Filters ─────────────────────────────────────────────
-                      const Text(
-                        'Filters',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                      ),
-
-                      if (_topCategories.isNotEmpty ||
-                          _topPriceRanges.isNotEmpty ||
-                          _topQuickChips.isNotEmpty) ...[
-                        const SizedBox(height: 10),
-                        const Text(
-                          '🔥 Most used',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 4,
-                          children: () {
-                            final chips = <Widget>[];
-                            for (final chip in _topQuickChips) {
-                              if (chips.length >= 3) break;
-                              chips.add(ActionChip(
-                                label: Text(chip),
-                                avatar: const Icon(Icons.local_fire_department,
-                                    size: 14, color: Colors.deepOrange),
-                                onPressed: () async {
-                                  if (chip == 'Open') {
-                                    _onlyOpen = true;
-                                    PreferencesService.instance.saveOnlyOpen(true);
-                                  }
-                                  if (chip == 'Top Rated') {
-                                    _onlyTopRated = true;
-                                    PreferencesService.instance.saveOnlyTopRated(true);
-                                  }
-                                  _applyFiltersAsync();
-                                  await _logFilter(filterType: 'quick_chip', filterValue: chip);
-                                },
-                              ));
-                            }
-                            for (final cat in _topCategories) {
-                              if (chips.length >= 3) break;
-                              chips.add(ActionChip(
-                                label: Text(cat),
-                                avatar: const Icon(Icons.restaurant,
-                                    size: 14, color: Colors.deepOrange),
-                                onPressed: () async {
-                                  _selectedCategory = cat;
-                                  _applyFiltersAsync();
-                                  PreferencesService.instance.saveSelectedCategory(cat);
-                                  await _logFilter(filterType: 'category', filterValue: cat);
-                                },
-                              ));
-                            }
-                            for (final price in _topPriceRanges) {
-                              if (chips.length >= 3) break;
-                              chips.add(ActionChip(
-                                label: Text(price),
-                                avatar: const Icon(Icons.attach_money,
-                                    size: 14, color: Colors.green),
-                                onPressed: () async {
-                                  _selectedPriceRange = price;
-                                  _applyFiltersAsync();
-                                  PreferencesService.instance.saveSelectedPriceRange(price);
-                                  await _logFilter(filterType: 'price_range', filterValue: price);
-                                },
-                              ));
-                            }
-                            return chips;
-                          }(),
-                        ),
-                        const Divider(height: 20),
-                      ],
-
-                      const SizedBox(height: 12),
-
-                      SizedBox(
-                        height: 44,
-                        child: ListView(
-                          scrollDirection: Axis.horizontal,
-                          children: [
-                            CategoryChip(
-                              label: 'All',
-                              selected: !_onlyOpen && !_onlyTopRated && _selectedCategory == 'All',
-                              onTap: () async {
-                                _selectedCategory = 'All';
-                                _onlyOpen = false;
-                                _onlyTopRated = false;
-                                _applyFiltersAsync(); // Isolate
-                                PreferencesService.instance.saveSelectedCategory('All');
-                                PreferencesService.instance.saveOnlyOpen(false);
-                                PreferencesService.instance.saveOnlyTopRated(false);
-                                await _logFilter(filterType: 'quick_chip', filterValue: 'All');
-                              },
-                            ),
-                            CategoryChip(
-                              label: 'Open',
-                              selected: _onlyOpen,
-                              onTap: () async {
-                                _onlyOpen = !_onlyOpen;
-                                _applyFiltersAsync(); // Isolate
-                                PreferencesService.instance.saveOnlyOpen(_onlyOpen);
-                                await _logFilter(
-                                  filterType: 'quick_chip',
-                                  filterValue: _onlyOpen ? 'Open' : 'Open_Off',
-                                );
-                              },
-                            ),
-                            CategoryChip(
-                              label: 'Top Rated',
-                              selected: _onlyTopRated,
-                              onTap: () async {
-                                _onlyTopRated = !_onlyTopRated;
-                                _applyFiltersAsync(); // Isolate
-                                PreferencesService.instance.saveOnlyTopRated(_onlyTopRated);
-                                await _logFilter(
-                                  filterType: 'quick_chip',
-                                  filterValue: _onlyTopRated ? 'Top Rated' : 'Top Rated_Off',
-                                );
-                              },
-                            ),
-                            ...categoryOptions.where((c) => c != 'All').map((cat) =>
-                                CategoryChip(
-                                  label: cat,
-                                  selected: _selectedCategory == cat,
-                                  onTap: () async {
-                                    _selectedCategory =
-                                        _selectedCategory == cat ? 'All' : cat;
-                                    _applyFiltersAsync(); // Isolate
-                                    PreferencesService.instance.saveSelectedCategory(_selectedCategory);
-                                    await _logFilter(
-                                        filterType: 'category',
-                                        filterValue: _selectedCategory);
-                                  },
-                                )),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      DropdownButtonFormField<String>(
-                        initialValue: _selectedPriceRange,
-                        decoration: const InputDecoration(
-                          labelText: 'Price range',
-                          border: OutlineInputBorder(),
-                        ),
-                        items: priceOptions
-                            .map((p) => DropdownMenuItem(value: p, child: Text(p)))
-                            .toList(),
-                        onChanged: (value) async {
-                          if (value == null) return;
-                          _selectedPriceRange = value;
-                          _applyFiltersAsync(); // Isolate
-                          PreferencesService.instance.saveSelectedPriceRange(value);
-                          await _logFilter(filterType: 'price_range', filterValue: value);
-                        },
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      // ── Restaurant list driven by Isolate results ───────────
-                      if (_filteredRestaurants.isEmpty)
-                        const Padding(
-                          padding: EdgeInsets.only(top: 40),
-                          child: Center(
-                            child: Text('No restaurants match the selected filters'),
-                          ),
-                        )
-                      else
-                        ..._filteredRestaurants.map(
-                          (r) => Padding(
-                            padding: const EdgeInsets.only(bottom: 18),
-                            child: RestaurantCard(
-                              restaurant: r,
-                              showFavoriteIcon: true,
-                              favoriteFilled: r.isFavorite,
-                              onFavoriteTap: () => _toggleFavorite(r),
-                              onTap: () async {
-                                await _logHomeInteraction(
-                                  'open_restaurant_from_home',
-                                  additionalParameters: {'restaurant_id': r.id},
-                                );
-                                if (!context.mounted) return;
-                                await Navigator.pushNamed(
-                                  context,
-                                  RestaurantDetailScreen.routeName,
-                                  arguments: r.id,
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
+          Expanded(child: _buildHomeContent()),
         ],
       ),
     );

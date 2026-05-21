@@ -6,6 +6,7 @@ import 'package:foodandes_app/features/home/home_filtered_screen.dart';
 import 'package:foodandes_app/features/home/home_screen.dart';
 import 'package:foodandes_app/features/map/map_screen.dart';
 import 'package:foodandes_app/features/profile/profile_screen.dart';
+import 'package:foodandes_app/features/recently_viewed/recently_viewed_screen.dart';
 import 'package:foodandes_app/features/restaurant/restaurant_detail_screen.dart';
 import 'package:foodandes_app/features/search/search_active_screen.dart';
 import 'package:foodandes_app/features/search/search_empty_screen.dart';
@@ -27,6 +28,7 @@ class AppRoutes {
         FavoritesEmptyScreen.routeName: (_) => const FavoritesEmptyScreen(),
         FavoritesScreen.routeName: (_) => const FavoritesScreen(),
         ProfileScreen.routeName: (_) => const ProfileScreen(),
+        RecentlyViewedScreen.routeName: (_) => const RecentlyViewedScreen(),
         ReviewsScreen.routeName: (_) => const ReviewsScreen(),
         WriteReviewScreen.routeName: (_) => const WriteReviewScreen(),
         CompareRestaurantsScreen.routeName: (_) => const CompareRestaurantsScreen(),
