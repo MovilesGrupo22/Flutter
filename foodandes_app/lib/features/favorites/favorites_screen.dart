@@ -108,18 +108,26 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
   }
 
   Future<void> _toggleFavorite(Restaurant restaurant) async {
-    if (_isOffline) {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    final willBeFavorite = !restaurant.isFavorite;
+
+    try {
+      await _repository.toggleFavorite(restaurant.id);
+    } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cannot change favorites while offline')),
+        SnackBar(content: Text('Could not update favorite: $error')),
       );
       return;
     }
 
-    final userId = FirebaseAuth.instance.currentUser?.uid;
-    final willBeFavorite = !restaurant.isFavorite;
-
-    await _repository.toggleFavorite(restaurant.id);
+    if (_isOffline && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Favorite change saved offline and will sync later.'),
+        ),
+      );
+    }
 
     await _logFavoritesInteraction(
       willBeFavorite ? 'favorite_added' : 'favorite_removed',

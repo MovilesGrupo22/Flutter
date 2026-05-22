@@ -1,87 +1,79 @@
+import 'package:flutter/foundation.dart';
+import 'package:foodandes_app/data/services/connectivity_service.dart';
+import 'package:foodandes_app/data/services/local_database_service.dart';
 import 'package:foodandes_app/data/services/restaurant_service.dart';
 import 'package:foodandes_app/data/services/user_service.dart';
 import 'package:foodandes_app/models/restaurant.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// RestaurantRepository — multi-threading additions (MS5)
-//
-// STRATEGY 1 – Stream (5 pts)
-//   restaurantsStream() exposes a Stream<List<Restaurant>> that merges the
-//   real-time Firestore stream from RestaurantService with the user's favourite
-//   IDs fetched asynchronously.
-//
-//   asyncMap() lets us perform an async operation (fetching favourites) for
-//   every element the upstream Stream emits.  The result is a new Stream whose
-//   values are already enriched with isFavorite state — so the HomeScreen's
-//   StreamBuilder receives ready-to-render data.
-//
-// STRATEGY 2 – Future.wait (parallel futures, 5 pts)
-//   fetchRestaurants() and fetchRestaurantById() already use Future.wait to
-//   launch two Firestore reads in parallel, which is the documented Future
-//   pattern from class (Future + handler).
-// ─────────────────────────────────────────────────────────────────────────────
-
 class RestaurantRepository {
   final RestaurantService _restaurantService = RestaurantService();
   final UserService _userService = UserService();
+  final LocalDatabaseService _localDb = LocalDatabaseService.instance;
 
   // ── STRATEGY 1: Stream ──────────────────────────────────────────────────────
-  //
   // Returns a Stream<List<Restaurant>> where each emission is the current full
-  // restaurant list with up-to-date isFavorite flags.
-  //
-  // asyncMap() chains an async operation onto each stream event:
-  //   1. RestaurantService.restaurantsStream() emits a raw List<Restaurant>
-  //      whenever Firestore changes.
-  //   2. asyncMap() fetches the user's favourite IDs (async, via Future).
-  //   3. We merge both results and emit an enriched List<Restaurant>.
-  //
-  // This means the HomeScreen always has live data — no manual refresh needed.
+  // restaurant list with up-to-date isFavorite flags. The stream also refreshes
+  // SQLite so protected screens keep a usable offline copy.
   Stream<List<Restaurant>> restaurantsStream() {
-    return _restaurantService
-        .restaurantsStream()
-        .asyncMap((restaurants) async {
-          // Fetch favourite IDs each time new restaurant data arrives.
-          // If it fails we fall back to an empty list so the stream keeps going.
-          final favoriteIds = await _userService
-              .getFavoriteRestaurantIds()
-              .catchError((_) => <String>[]);
-
-          return restaurants.map((r) {
-            return r.copyWith(isFavorite: favoriteIds.contains(r.id));
-          }).toList();
-        });
+    return _restaurantService.restaurantsStream().asyncMap((restaurants) async {
+      await _localDb.insertRestaurants(restaurants).catchError((Object error) {
+        debugPrint('RestaurantRepository local cache save ERROR -> $error');
+      });
+      return _withFavoriteState(restaurants);
+    }).handleError((Object error) {
+      debugPrint('RestaurantRepository.restaurantsStream ERROR -> $error');
+    });
   }
 
-  // ── Existing methods (Future-based) — unchanged ────────────────────────────
-
+  // ── STRATEGY 2: Future + async/await with offline fallback ─────────────────
   Future<List<Restaurant>> fetchRestaurants() async {
-    // Lanzar ambas lecturas en paralelo
-    final results = await Future.wait([
-      _restaurantService.getRestaurants(),
-      _userService.getFavoriteRestaurantIds().catchError((_) => <String>[]),
-    ]);
+    final online = await ConnectivityService.instance.isOnline;
+    if (!online) {
+      return _fetchRestaurantsFromLocal();
+    }
 
-    final restaurants = results[0] as List<Restaurant>;
-    final favoriteIds = results[1] as List<String>;
+    try {
+      final results = await Future.wait<dynamic>([
+        _restaurantService.getRestaurants(forceRefresh: true),
+        _userService.getFavoriteRestaurantIds().catchError((_) => <String>[]),
+      ]);
 
-    return restaurants.map((r) {
-      return r.copyWith(isFavorite: favoriteIds.contains(r.id));
-    }).toList();
+      final restaurants = results[0] as List<Restaurant>;
+      final favoriteIds = results[1] as List<String>;
+      await _localDb.insertRestaurants(restaurants);
+
+      return _applyFavoriteIds(restaurants, favoriteIds);
+    } catch (error) {
+      debugPrint('RestaurantRepository.fetchRestaurants ERROR -> $error');
+      return _fetchRestaurantsFromLocal();
+    }
   }
 
   Future<Restaurant?> fetchRestaurantById(String restaurantId) async {
-    // Lanzar ambas lecturas en paralelo
-    final results = await Future.wait([
-      _restaurantService.getRestaurantById(restaurantId),
-      _userService.getFavoriteRestaurantIds().catchError((_) => <String>[]),
-    ]);
+    final online = await ConnectivityService.instance.isOnline;
+    if (!online) {
+      return _fetchRestaurantFromLocal(restaurantId);
+    }
 
-    final restaurant = results[0] as Restaurant?;
-    final favoriteIds = results[1] as List<String>;
+    try {
+      final results = await Future.wait<dynamic>([
+        _restaurantService.getRestaurantById(restaurantId),
+        _userService.getFavoriteRestaurantIds().catchError((_) => <String>[]),
+      ]);
 
-    if (restaurant == null) return null;
-    return restaurant.copyWith(isFavorite: favoriteIds.contains(restaurant.id));
+      final restaurant = results[0] as Restaurant?;
+      final favoriteIds = results[1] as List<String>;
+
+      if (restaurant == null) {
+        return _fetchRestaurantFromLocal(restaurantId);
+      }
+
+      await _localDb.insertRestaurants([restaurant]);
+      return restaurant.copyWith(isFavorite: favoriteIds.contains(restaurant.id));
+    } catch (error) {
+      debugPrint('RestaurantRepository.fetchRestaurantById ERROR -> $error');
+      return _fetchRestaurantFromLocal(restaurantId);
+    }
   }
 
   Future<void> toggleFavorite(String restaurantId) async {
@@ -89,22 +81,71 @@ class RestaurantRepository {
   }
 
   Future<List<Restaurant>> fetchFavoriteRestaurants() async {
-    final results = await Future.wait([
-      _restaurantService.getRestaurants(),
-      _userService.getFavoriteRestaurantIds().catchError((_) => <String>[]),
-    ]);
+    final online = await ConnectivityService.instance.isOnline;
+    if (!online) {
+      return _fetchFavoritesFromLocal();
+    }
 
-    final restaurants = results[0] as List<Restaurant>;
-    final favoriteIds = results[1] as List<String>;
+    try {
+      final results = await Future.wait<dynamic>([
+        _restaurantService.getRestaurants(forceRefresh: true),
+        _userService.getFavoriteRestaurantIds().catchError((_) => <String>[]),
+      ]);
 
+      final restaurants = results[0] as List<Restaurant>;
+      final favoriteIds = results[1] as List<String>;
+      await _localDb.insertRestaurants(restaurants);
+
+      return restaurants
+          .where((r) => favoriteIds.contains(r.id))
+          .map((r) => r.copyWith(isFavorite: true))
+          .toList();
+    } catch (error) {
+      debugPrint('RestaurantRepository.fetchFavoriteRestaurants ERROR -> $error');
+      return _fetchFavoritesFromLocal();
+    }
+  }
+
+  Future<List<Restaurant>> _withFavoriteState(List<Restaurant> restaurants) async {
+    final favoriteIds = await _userService
+        .getFavoriteRestaurantIds()
+        .catchError((_) => <String>[]);
+    return _applyFavoriteIds(restaurants, favoriteIds);
+  }
+
+  List<Restaurant> _applyFavoriteIds(
+    List<Restaurant> restaurants,
+    List<String> favoriteIds,
+  ) {
     return restaurants
-        .where((r) => favoriteIds.contains(r.id))
-        .map((r) => r.copyWith(isFavorite: true))
+        .map((r) => r.copyWith(isFavorite: favoriteIds.contains(r.id)))
         .toList();
   }
 
-  // ─── Helpers de filtrado (sin toques de red) ────────────────────────────────
+  Future<List<Restaurant>> _fetchRestaurantsFromLocal() async {
+    final restaurants = await _localDb.getRestaurants();
+    final favoriteIds = await _userService
+        .getFavoriteRestaurantIds()
+        .catchError((_) => <String>[]);
+    return _applyFavoriteIds(restaurants, favoriteIds);
+  }
 
+  Future<Restaurant?> _fetchRestaurantFromLocal(String restaurantId) async {
+    final restaurant = await _localDb.getRestaurantById(restaurantId);
+    if (restaurant == null) return null;
+
+    final favoriteIds = await _userService
+        .getFavoriteRestaurantIds()
+        .catchError((_) => <String>[]);
+    return restaurant.copyWith(isFavorite: favoriteIds.contains(restaurant.id));
+  }
+
+  Future<List<Restaurant>> _fetchFavoritesFromLocal() async {
+    final restaurants = await _fetchRestaurantsFromLocal();
+    return restaurants.where((r) => r.isFavorite).toList();
+  }
+
+  // ─── Helpers de filtrado (sin toques de red) ────────────────────────────────
   List<Restaurant> filterRestaurants({
     required List<Restaurant> restaurants,
     String query = '',
@@ -127,16 +168,22 @@ class RestaurantRepository {
           r.category.toLowerCase() == selectedCategory.toLowerCase();
 
       final matchesOpen = !onlyOpen || r.isOpen;
-      final matchesTopRated = !onlyTopRated || r.rating >= 4.5;
       final matchesPrice =
           selectedPriceRange == 'All' || r.priceRange == selectedPriceRange;
 
       return matchesQuery &&
           matchesCategory &&
           matchesOpen &&
-          matchesTopRated &&
           matchesPrice;
-    }).toList();
+    }).toList()
+      ..sort((a, b) {
+        if (!onlyTopRated) return 0;
+        final ratingCompare = b.rating.compareTo(a.rating);
+        if (ratingCompare != 0) return ratingCompare;
+        final reviewsCompare = b.reviewCount.compareTo(a.reviewCount);
+        if (reviewsCompare != 0) return reviewsCompare;
+        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      });
   }
 
   List<String> extractCategories(List<Restaurant> restaurants) {

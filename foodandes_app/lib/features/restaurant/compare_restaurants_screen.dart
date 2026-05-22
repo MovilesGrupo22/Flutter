@@ -1,12 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:foodandes_app/core/constants/app_colors.dart';
 import 'package:foodandes_app/data/repositories/restaurant_repository.dart';
+import 'package:foodandes_app/data/services/connectivity_service.dart';
 import 'package:foodandes_app/data/services/smart_compare_service.dart';
 import 'package:foodandes_app/data/services/section_usage_service.dart';
 import 'package:foodandes_app/data/services/trending_restaurants_service.dart';
 import 'package:foodandes_app/models/restaurant.dart';
 import 'package:foodandes_app/shared/widgets/app_cached_image.dart';
 import 'package:foodandes_app/shared/widgets/open_badge.dart';
+import 'package:foodandes_app/shared/widgets/offline_protected_notice.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:foodandes_app/data/services/analytics_service.dart';
 
@@ -36,12 +40,27 @@ class _CompareRestaurantsScreenState extends State<CompareRestaurantsScreen> {
   int _topTrendingSampleSize = 0;
 
   bool _isLoading = true;
+  bool _isOffline = false;
   String? _error;
+  StreamSubscription<bool>? _connectivitySubscription;
 
   @override
   void initState() {
     super.initState();
+    _initConnectivity();
     _searchController.addListener(() => setState(() {}));
+  }
+
+  Future<void> _initConnectivity() async {
+    final online = await ConnectivityService.instance.isOnline;
+    if (!mounted) return;
+    setState(() => _isOffline = !online);
+
+    _connectivitySubscription =
+        ConnectivityService.instance.isOnlineStream.listen((isOnline) {
+      if (!mounted) return;
+      setState(() => _isOffline = !isOnline);
+    });
   }
 
   @override
@@ -59,6 +78,7 @@ class _CompareRestaurantsScreenState extends State<CompareRestaurantsScreen> {
 
   @override
   void dispose() {
+    _connectivitySubscription?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -216,6 +236,12 @@ class _CompareRestaurantsScreenState extends State<CompareRestaurantsScreen> {
                   : ListView(
                       padding: const EdgeInsets.all(16),
                       children: [
+                        if (_isOffline) ...[
+                          const OfflineProtectedNotice(
+                            message: 'Offline mode · comparing saved restaurant data',
+                          ),
+                          const SizedBox(height: 16),
+                        ],
                         Text(
                           'Choose another restaurant to compare with '
                           '${_baseRestaurant!.name}.',

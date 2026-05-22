@@ -1,12 +1,16 @@
+import 'dart:async';
+
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:foodandes_app/data/repositories/restaurant_repository.dart';
+import 'package:foodandes_app/data/services/analytics_service.dart';
+import 'package:foodandes_app/data/services/connectivity_service.dart';
 import 'package:foodandes_app/features/restaurant/restaurant_detail_screen.dart';
 import 'package:foodandes_app/models/restaurant.dart';
 import 'package:foodandes_app/shared/widgets/category_chip.dart';
 import 'package:foodandes_app/shared/widgets/custom_bottom_navbar.dart';
+import 'package:foodandes_app/shared/widgets/offline_protected_notice.dart';
 import 'package:foodandes_app/shared/widgets/restaurant_card.dart';
-import 'package:foodandes_app/data/services/analytics_service.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
 class HomeFilteredScreen extends StatefulWidget {
   static const String routeName = '/home-filtered';
@@ -21,11 +25,32 @@ class _HomeFilteredScreenState extends State<HomeFilteredScreen> {
   final RestaurantRepository _repository = RestaurantRepository();
 
   late Future<List<Restaurant>> _restaurantsFuture;
+  bool _isOffline = false;
+  StreamSubscription<bool>? _connectivitySubscription;
 
   @override
   void initState() {
     super.initState();
     _loadRestaurants();
+    _initConnectivity();
+  }
+
+  Future<void> _initConnectivity() async {
+    final online = await ConnectivityService.instance.isOnline;
+    if (!mounted) return;
+    setState(() => _isOffline = !online);
+
+    _connectivitySubscription =
+        ConnectivityService.instance.isOnlineStream.listen((isOnline) {
+      if (!mounted) return;
+      setState(() => _isOffline = !isOnline);
+    });
+  }
+
+  @override
+  void dispose() {
+    _connectivitySubscription?.cancel();
+    super.dispose();
   }
 
   void _loadRestaurants() {
@@ -36,7 +61,23 @@ class _HomeFilteredScreenState extends State<HomeFilteredScreen> {
     final userId = FirebaseAuth.instance.currentUser?.uid;
     final willBeFavorite = !restaurant.isFavorite;
 
-    await _repository.toggleFavorite(restaurant.id);
+    try {
+      await _repository.toggleFavorite(restaurant.id);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not update favorite: $error')),
+      );
+      return;
+    }
+
+    if (_isOffline && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Favorite change saved offline and will sync later.'),
+        ),
+      );
+    }
 
     if (userId != null) {
       if (willBeFavorite) {
@@ -54,9 +95,7 @@ class _HomeFilteredScreenState extends State<HomeFilteredScreen> {
       }
     }
 
-    setState(() {
-      _loadRestaurants();
-    });
+    setState(_loadRestaurants);
   }
 
   @override
@@ -86,14 +125,30 @@ class _HomeFilteredScreenState extends State<HomeFilteredScreen> {
               .toList();
 
           if (restaurants.isEmpty) {
-            return const Center(
-              child: Text('No Americana restaurants available'),
+            return ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                if (_isOffline)
+                  const OfflineProtectedNotice(
+                    message: 'Offline mode · showing saved restaurant data',
+                  ),
+                const SizedBox(height: 48),
+                const Center(
+                  child: Text('No Americana restaurants available'),
+                ),
+              ],
             );
           }
 
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              if (_isOffline) ...[
+                const OfflineProtectedNotice(
+                  message: 'Offline mode · showing saved restaurant data',
+                ),
+                const SizedBox(height: 16),
+              ],
               SizedBox(
                 height: 44,
                 child: ListView(
@@ -122,9 +177,7 @@ class _HomeFilteredScreenState extends State<HomeFilteredScreen> {
                         arguments: restaurant.id,
                       );
 
-                      setState(() {
-                        _loadRestaurants();
-                      });
+                      setState(_loadRestaurants);
                     },
                   ),
                 ),

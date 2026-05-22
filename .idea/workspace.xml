@@ -5,7 +5,32 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="928951ce-400b-4bfa-b34c-5d37ea2bedc4" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/foodandes_app/android/app/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/android/app/build.gradle.kts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/foodandes_app/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/foodandes_app/android/app/src/main/AndroidManifest.xml" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/android/app/src/main/AndroidManifest.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/foodandes_app/lib/app/routes.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/lib/app/routes.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/foodandes_app/lib/data/repositories/restaurant_repository.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/lib/data/repositories/restaurant_repository.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/foodandes_app/lib/data/services/auth_services.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/lib/data/services/auth_services.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/foodandes_app/lib/data/services/connectivity_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/lib/data/services/connectivity_service.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/foodandes_app/lib/data/services/local_database_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/lib/data/services/local_database_service.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/foodandes_app/lib/data/services/restaurant_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/lib/data/services/restaurant_service.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/foodandes_app/lib/data/services/review_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/lib/data/services/review_service.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/foodandes_app/lib/data/services/user_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/lib/data/services/user_service.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/foodandes_app/lib/features/auth/login_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/lib/features/auth/login_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/foodandes_app/lib/features/auth/register_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/lib/features/auth/register_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/foodandes_app/lib/features/favorites/favorites_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/lib/features/favorites/favorites_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/foodandes_app/lib/features/home/home_filtered_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/lib/features/home/home_filtered_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/foodandes_app/lib/features/home/home_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/lib/features/home/home_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/foodandes_app/lib/features/map/map_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/lib/features/map/map_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/foodandes_app/lib/features/profile/profile_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/lib/features/profile/profile_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/foodandes_app/lib/features/restaurant/compare_restaurants_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/lib/features/restaurant/compare_restaurants_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/foodandes_app/lib/features/restaurant/restaurant_detail_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/lib/features/restaurant/restaurant_detail_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/foodandes_app/lib/features/restaurant/reviews_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/lib/features/restaurant/reviews_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/foodandes_app/lib/features/restaurant/write_review_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/lib/features/restaurant/write_review_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/foodandes_app/lib/features/search/search_empty_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/lib/features/search/search_empty_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/foodandes_app/lib/main.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/lib/main.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/foodandes_app/lib/models/restaurant.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/lib/models/restaurant.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/foodandes_app/lib/shared/widgets/custom_search_bar.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/lib/shared/widgets/custom_search_bar.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/foodandes_app/lib/shared/widgets/offline_banner.dart" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/lib/shared/widgets/offline_banner.dart" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -36,7 +61,7 @@
     "RunOnceActivity.readMode.enableVisualFormatting": "true",
     "cf.first.check.clang-format": "false",
     "cidr.known.project.marker": "true",
-    "git-widget-placeholder": "main",
+    "git-widget-placeholder": "vivavoce3ajusted",
     "kotlin-language-version-configured": "true",
     "last_opened_file_path": "C:/Users/sergi/Documents/Flutter",
     "settings.editor.selected.configurable": "AndroidSdkUpdater"

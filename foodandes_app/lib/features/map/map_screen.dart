@@ -6,11 +6,13 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:foodandes_app/core/constants/app_colors.dart';
 import 'package:foodandes_app/data/repositories/restaurant_repository.dart';
+import 'package:foodandes_app/data/services/connectivity_service.dart';
 import 'package:foodandes_app/features/restaurant/restaurant_detail_screen.dart';
 import 'package:foodandes_app/models/restaurant.dart';
 import 'package:foodandes_app/shared/widgets/app_cached_image.dart';
 import 'package:foodandes_app/shared/widgets/custom_bottom_navbar.dart';
 import 'package:foodandes_app/shared/widgets/open_badge.dart';
+import 'package:foodandes_app/shared/widgets/offline_protected_notice.dart';
 import 'package:foodandes_app/data/services/analytics_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -30,6 +32,7 @@ class _MapScreenState extends State<MapScreen> {
   GoogleMapController? _mapController;
   StreamSubscription<Position>? _positionSubscription;
   StreamSubscription<CompassEvent>? _headingSubscription;
+  StreamSubscription<bool>? _connectivitySubscription;
 
   Restaurant? _selectedRestaurant;
   Position? _currentPosition;
@@ -37,6 +40,7 @@ class _MapScreenState extends State<MapScreen> {
 
   bool _isLoading = true;
   bool _isRequestingLocation = false;
+  bool _isOffline = false;
   bool _hasLocationPermission = false;
   String? _error;
   String? _locationStatusMessage;
@@ -45,6 +49,7 @@ class _MapScreenState extends State<MapScreen> {
   @override
   void initState() {
     super.initState();
+    _initConnectivity();
     _loadRestaurants();
     _initializeUserLocation();
 
@@ -58,10 +63,23 @@ class _MapScreenState extends State<MapScreen> {
     });
   }
 
+  Future<void> _initConnectivity() async {
+    final online = await ConnectivityService.instance.isOnline;
+    if (!mounted) return;
+    setState(() => _isOffline = !online);
+
+    _connectivitySubscription =
+        ConnectivityService.instance.isOnlineStream.listen((isOnline) {
+      if (!mounted) return;
+      setState(() => _isOffline = !isOnline);
+    });
+  }
+
   @override
   void dispose() {
     _positionSubscription?.cancel();
     _headingSubscription?.cancel();
+    _connectivitySubscription?.cancel();
     super.dispose();
   }
 
@@ -347,15 +365,25 @@ class _MapScreenState extends State<MapScreen> {
         title: const Text('Map'),
       ),
       bottomNavigationBar: const CustomBottomNavbar(currentIndex: 1),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(child: Text(_error!))
-              : _restaurants.isEmpty
-                  ? const Center(
-                      child: Text('No restaurants available on the map'),
-                    )
-                  : Stack(
+      body: Column(
+        children: [
+          if (_isOffline)
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: OfflineProtectedNotice(
+                message: 'Offline mode · showing saved map data when available',
+              ),
+            ),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _error != null
+                    ? Center(child: Text(_error!))
+                    : _restaurants.isEmpty
+                        ? const Center(
+                            child: Text('No restaurants available on the map'),
+                          )
+                        : Stack(
                       children: [
                         Positioned.fill(
                           child: GoogleMap(
@@ -451,6 +479,9 @@ class _MapScreenState extends State<MapScreen> {
                           ),
                       ],
                     ),
+          ),
+        ],
+      ),
     );
   }
 }

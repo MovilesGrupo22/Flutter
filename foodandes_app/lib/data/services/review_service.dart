@@ -25,7 +25,8 @@ class ReviewService {
     final snapshot = await _firestore
         .collection('reviews')
         .where('restaurantId', isEqualTo: restaurantId)
-        .get();
+        .get()
+        .timeout(const Duration(seconds: 8));
 
     final reviews = snapshot.docs
         .map((doc) => Review.fromFirestore(doc.id, doc.data()))
@@ -39,12 +40,17 @@ class ReviewService {
     final currentUser = _auth.currentUser;
     if (currentUser == null) return 0;
 
-    final snapshot = await _firestore
-        .collection('reviews')
-        .where('userId', isEqualTo: currentUser.uid)
-        .get();
+    try {
+      final snapshot = await _firestore
+          .collection('reviews')
+          .where('userId', isEqualTo: currentUser.uid)
+          .get()
+          .timeout(const Duration(seconds: 8));
 
-    return snapshot.docs.length;
+      return snapshot.docs.length;
+    } catch (_) {
+      return 0;
+    }
   }
 
   Future<void> createReview({

@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:foodandes_app/core/constants/app_colors.dart';
 import 'package:foodandes_app/core/utils/map_launcher_helper.dart';
 import 'package:foodandes_app/data/repositories/restaurant_repository.dart';
 import 'package:foodandes_app/data/services/local_database_service.dart';
+import 'package:foodandes_app/data/services/connectivity_service.dart';
 import 'package:foodandes_app/features/restaurant/compare_restaurants_screen.dart';
 import 'package:foodandes_app/features/restaurant/reviews_screen.dart';
 import 'package:foodandes_app/models/restaurant.dart';
@@ -31,11 +34,15 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
   Future<Restaurant?>? _restaurantFuture;
   String? _lastLoggedRestaurantId;
   bool _servedFromLocal = false;
+  bool _isOffline = false;
+  StreamSubscription<bool>? _connectivitySubscription;
 
   Future<Restaurant?> _fetchRestaurant(String restaurantId) async {
-    _servedFromLocal = false;
+    final online = await ConnectivityService.instance.isOnline;
+    _servedFromLocal = !online;
 
-    // Try primary path: LRU cache → list cache → Firestore.
+    // Try primary path: LRU cache → list cache → Firestore. The repository
+    // falls back to SQLite when offline or when Firestore is unreachable.
     final restaurant = await _repository.fetchRestaurantById(restaurantId);
     if (restaurant != null) return restaurant;
 
@@ -48,6 +55,30 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
     }
 
     return null;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _initConnectivity();
+  }
+
+  Future<void> _initConnectivity() async {
+    final online = await ConnectivityService.instance.isOnline;
+    if (!mounted) return;
+    setState(() => _isOffline = !online);
+
+    _connectivitySubscription =
+        ConnectivityService.instance.isOnlineStream.listen((isOnline) {
+      if (!mounted) return;
+      setState(() => _isOffline = !isOnline);
+    });
+  }
+
+  @override
+  void dispose() {
+    _connectivitySubscription?.cancel();
+    super.dispose();
   }
 
   @override
@@ -77,7 +108,23 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
     final userId = FirebaseAuth.instance.currentUser?.uid;
     final willBeFavorite = !restaurant.isFavorite;
 
-    await _repository.toggleFavorite(_restaurantId!);
+    try {
+      await _repository.toggleFavorite(_restaurantId!);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not update favorite: $error')),
+      );
+      return;
+    }
+
+    if (_isOffline && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Favorite change saved offline and will sync later.'),
+        ),
+      );
+    }
 
     if (userId != null) {
       if (willBeFavorite) {
@@ -150,6 +197,10 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
             _lastLoggedRestaurantId = restaurant.id;
             final userId = FirebaseAuth.instance.currentUser?.uid;
 
+            unawaited(
+              LocalDatabaseService.instance.recordRecentlyViewed(restaurant),
+            );
+
             AnalyticsService.instance.logRestaurantView(
               restaurantId: restaurant.id,
               restaurantName: restaurant.name,
@@ -176,7 +227,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
 
           return ListView(
             children: [
-              if (_servedFromLocal)
+              if (_isOffline || _servedFromLocal)
                 const OfflineProtectedNotice(
                   message: 'Offline mode · showing last saved version',
                 ),
@@ -341,6 +392,17 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
                       child: FilledButton.icon(
                         onPressed: () async {
                           try {
+                            final isOnline = await ConnectivityService.instance.isOnline;
+                            if (!isOnline) {
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Directions require internet to open Google Maps.'),
+                                ),
+                              );
+                              return;
+                            }
+
                             final userId = FirebaseAuth.instance.currentUser?.uid;
 
                                     await AnalyticsService.instance.logSectionInteraction(

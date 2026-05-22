@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:foodandes_app/core/constants/app_colors.dart';
 import 'package:foodandes_app/data/services/auth_services.dart';
+import 'package:foodandes_app/data/services/connectivity_service.dart';
 import 'package:foodandes_app/shared/widgets/app_cached_image.dart';
+import 'package:foodandes_app/shared/widgets/offline_protected_notice.dart';
 import 'package:foodandes_app/data/services/user_service.dart';
 import 'package:foodandes_app/data/services/review_service.dart';
 import 'package:foodandes_app/features/auth/login_screen.dart';
@@ -27,13 +29,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   late Future<UserProfile?> _profileFuture;
   late Future<int> _reviewCountFuture;
+  bool _isOffline = false;
+  StreamSubscription<bool>? _connectivitySubscription;
 
   @override
   void initState() {
     super.initState();
+    _initConnectivity();
     unawaited(_authServices.syncCurrentUserDocument());
     _profileFuture = _userService.getCurrentUserProfile();
-    _reviewCountFuture = _reviewService.getCurrentUserReviewCount();
+    _reviewCountFuture = _reviewService
+        .getCurrentUserReviewCount()
+        .catchError((_) => 0);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final userId = FirebaseAuth.instance.currentUser?.uid;
@@ -42,6 +49,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
         userId: userId,
       );
     });
+  }
+
+  Future<void> _initConnectivity() async {
+    final online = await ConnectivityService.instance.isOnline;
+    if (!mounted) return;
+    setState(() => _isOffline = !online);
+
+    _connectivitySubscription =
+        ConnectivityService.instance.isOnlineStream.listen((isOnline) {
+      if (!mounted) return;
+      setState(() => _isOffline = !isOnline);
+    });
+  }
+
+  @override
+  void dispose() {
+    _connectivitySubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _logout() async {
@@ -111,6 +136,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        if (_isOffline) ...[
+                          const OfflineProtectedNotice(
+                            message: 'Offline mode · showing local account data',
+                          ),
+                          const SizedBox(height: 16),
+                        ],
                         const SizedBox(height: 20),
                         Center(
                           child: CircleAvatar(
