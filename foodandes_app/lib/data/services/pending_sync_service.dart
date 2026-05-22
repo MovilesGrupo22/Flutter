@@ -18,7 +18,12 @@ class PendingSyncService {
     if (_started) return;
     _started = true;
 
+    var firstEvent = true;
     _subscription = ConnectivityService.instance.isOnlineStream.listen((isOnline) {
+      if (firstEvent) {
+        firstEvent = false;
+        return;
+      }
       if (isOnline) {
         unawaited(syncAllPending());
       }

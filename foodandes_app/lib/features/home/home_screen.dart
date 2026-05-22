@@ -209,25 +209,11 @@ class _HomeScreenState extends State<HomeScreen> {
       // Runs on a background Isolate — main thread stays responsive.
       final result = await RestaurantFilterIsolate.run(params);
 
-      if (!mounted || runId != _filterRunId) return;
-      setState(() {
-        _filteredRestaurants = result;
-        _isFiltering = false;
-      });
-    } catch (error) {
-      debugPrint('HomeScreen filter isolate ERROR -> $error');
-      if (!mounted || runId != _filterRunId) return;
-      setState(() {
-        _filteredRestaurants = _repository.filterRestaurants(
-          restaurants: _allRestaurants,
-          selectedCategory: _selectedCategory,
-          onlyOpen: _onlyOpen,
-          onlyTopRated: _onlyTopRated,
-          selectedPriceRange: _selectedPriceRange,
-        );
-        _isFiltering = false;
-      });
-    }
+    if (!mounted || runId != _filterRunId) return;
+    setState(() {
+      _filteredRestaurants = result;
+      _isFiltering = false;
+    });
   }
 
   // ── STRATEGY 3: Future + async/await ───────────────────────────────────────

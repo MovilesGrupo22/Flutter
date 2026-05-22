@@ -12,17 +12,21 @@ class RestaurantRepository {
 
   // ── STRATEGY 1: Stream ──────────────────────────────────────────────────────
   // Returns a Stream<List<Restaurant>> where each emission is the current full
-  // restaurant list with up-to-date isFavorite flags. The stream also refreshes
-  // SQLite so protected screens keep a usable offline copy.
-  Stream<List<Restaurant>> restaurantsStream() {
-    return _restaurantService.restaurantsStream().asyncMap((restaurants) async {
-      await _localDb.insertRestaurants(restaurants).catchError((Object error) {
-        debugPrint('RestaurantRepository local cache save ERROR -> $error');
-      });
-      return _withFavoriteState(restaurants);
-    }).handleError((Object error) {
-      debugPrint('RestaurantRepository.restaurantsStream ERROR -> $error');
-    });
+  // restaurant list with up-to-date isFavorite flags.
+    Stream<List<Restaurant>> restaurantsStream() {
+    return _restaurantService
+        .restaurantsStream()
+        .asyncMap((restaurants) async {
+          // Fetch favourite IDs each time new restaurant data arrives.
+          // If it fails we fall back to an empty list so the stream keeps going.
+          final favoriteIds = await _userService
+              .getFavoriteRestaurantIds()
+              .catchError((_) => <String>[]);
+
+          return restaurants.map((r) {
+            return r.copyWith(isFavorite: favoriteIds.contains(r.id));
+          }).toList();
+        });
   }
 
   // ── STRATEGY 2: Future + async/await with offline fallback ─────────────────

@@ -22,7 +22,7 @@ class LocalDatabaseService {
 
     return openDatabase(
       path,
-      version: 4,
+      version: 3,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE restaurants (
@@ -64,14 +64,6 @@ class LocalDatabaseService {
         }
         if (oldVersion < 3) {
           await _createRecentlyViewedTable(db);
-        }
-        if (oldVersion < 4) {
-          await _addColumnIfMissing(db, 'restaurants', 'description', 'TEXT');
-          await _addColumnIfMissing(db, 'restaurants', 'review_count', 'INTEGER');
-          await _addColumnIfMissing(db, 'restaurants', 'latitude', 'REAL');
-          await _addColumnIfMissing(db, 'restaurants', 'longitude', 'REAL');
-          await _addColumnIfMissing(db, 'restaurants', 'opening_hours', 'TEXT');
-          await _addColumnIfMissing(db, 'restaurants', 'phone', 'TEXT');
         }
       },
     );
@@ -373,18 +365,18 @@ class LocalDatabaseService {
         id: row['id'] as String,
         name: row['name'] as String? ?? '',
         category: row['category'] as String? ?? '',
-        description: row['description'] as String? ?? '',
+        description: '',
         imageURL: row['image_url'] as String? ?? '',
         isOpen: (row['is_open'] as int? ?? 0) == 1,
-        latitude: (row['latitude'] as num?)?.toDouble() ?? 0.0,
-        longitude: (row['longitude'] as num?)?.toDouble() ?? 0.0,
-        openingHours: row['opening_hours'] as String? ?? '',
+        latitude: 0.0,
+        longitude: 0.0,
+        openingHours: '',
         priceRange: row['price_range'] as String? ?? '',
         rating: (row['rating'] as num?)?.toDouble() ?? 0.0,
-        reviewCount: (row['review_count'] as num?)?.toInt() ?? 0,
+        reviewCount: 0,
         tags: tags,
         address: row['address'] as String? ?? '',
-        phone: row['phone'] as String? ?? '',
+        phone: '',
       );
     }).toList();
   }

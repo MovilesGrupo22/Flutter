@@ -199,7 +199,7 @@ class _WriteReviewScreenState extends State<WriteReviewScreen> {
               if (_isOffline)
                 const OfflineProtectedNotice(
                   message:
-                      'Offline mode · review will be saved locally and synced later',
+                      'Offline mode · review draft is saved locally, but submission requires internet',
                 ),
               if (_isOffline) const SizedBox(height: 16),
               Text(
@@ -245,7 +245,7 @@ class _WriteReviewScreenState extends State<WriteReviewScreen> {
                             strokeWidth: 2.5,
                           ),
                         )
-                      : Text(_isOffline ? 'Save Review Offline' : 'Submit Review'),
+                      : Text(_isOffline ? 'Save Draft Offline' : 'Submit Review'),
                 ),
               ),
             ],
