@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:foodandes_app/core/constants/app_colors.dart';
 import 'package:foodandes_app/data/services/auth_services.dart';
 import 'package:foodandes_app/data/services/connectivity_service.dart';
+import 'package:foodandes_app/data/services/saved_meal_plan_service.dart';
 import 'package:foodandes_app/shared/widgets/app_cached_image.dart';
 import 'package:foodandes_app/shared/widgets/offline_protected_notice.dart';
 import 'package:foodandes_app/data/services/user_service.dart';
 import 'package:foodandes_app/data/services/review_service.dart';
 import 'package:foodandes_app/features/auth/login_screen.dart';
+import 'package:foodandes_app/features/meal_plan/saved_meal_plans_screen.dart';
 import 'package:foodandes_app/models/user_profile.dart';
 import 'package:foodandes_app/data/services/analytics_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -29,6 +31,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   late Future<UserProfile?> _profileFuture;
   late Future<int> _reviewCountFuture;
+  late Future<int> _savedMealPlanCountFuture;
   bool _isOffline = false;
   StreamSubscription<bool>? _connectivitySubscription;
 
@@ -41,6 +44,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _reviewCountFuture = _reviewService
         .getCurrentUserReviewCount()
         .catchError((_) => 0);
+    _savedMealPlanCountFuture = _loadSavedMealPlanCount();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final userId = FirebaseAuth.instance.currentUser?.uid;
@@ -69,6 +73,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.dispose();
   }
 
+  Future<int> _loadSavedMealPlanCount() async {
+    final plans = await SavedMealPlanService.instance.getSavedPlans();
+    return plans.length;
+  }
+
+  Future<void> _openSavedMealPlans() async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    await AnalyticsService.instance.logSectionInteraction(
+      section: AppSection.profile,
+      action: 'open_saved_meal_plans_from_profile',
+      userId: currentUser?.uid,
+    );
+
+    if (!mounted) return;
+    await Navigator.pushNamed(context, SavedMealPlansScreen.routeName);
+    if (!mounted) return;
+    setState(() {
+      _savedMealPlanCountFuture = _loadSavedMealPlanCount();
+    });
+  }
+
   Future<void> _logout() async {
     final currentUser = FirebaseAuth.instance.currentUser;
 
@@ -88,6 +113,57 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context,
       LoginScreen.routeName,
       (route) => false,
+    );
+  }
+
+  Widget _buildSavedMealPlansAccessCard(int savedPlansCount) {
+    return Card(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: _openSavedMealPlans,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF3E6),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.bookmarks_outlined,
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Saved meal plans',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      savedPlansCount == 0
+                          ? 'Open your locally saved food plans'
+                          : '$savedPlansCount plans saved locally',
+                      style: const TextStyle(color: AppColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -244,6 +320,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           const SizedBox(height: 28),
                         ] else
                           const SizedBox(height: 28),
+                        FutureBuilder<int>(
+                          future: _savedMealPlanCountFuture,
+                          builder: (context, savedPlansSnapshot) {
+                            return _buildSavedMealPlansAccessCard(
+                              savedPlansSnapshot.data ?? 0,
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 16),
                         OutlinedButton(
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppColors.primary,
