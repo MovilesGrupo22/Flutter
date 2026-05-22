@@ -14,6 +14,7 @@ import 'package:foodandes_app/features/favorites/favorites_screen.dart';
 import 'package:foodandes_app/features/restaurant/reviews_screen.dart';
 import 'package:foodandes_app/features/restaurant/write_review_screen.dart';
 import 'package:foodandes_app/features/restaurant/compare_restaurants_screen.dart';
+import 'package:foodandes_app/features/quick_picks/quick_picks_screen.dart';
 
 class AppRoutes {
   static Map<String, WidgetBuilder> get routes => {
@@ -32,5 +33,6 @@ class AppRoutes {
         ReviewsScreen.routeName: (_) => const ReviewsScreen(),
         WriteReviewScreen.routeName: (_) => const WriteReviewScreen(),
         CompareRestaurantsScreen.routeName: (_) => const CompareRestaurantsScreen(),
+        QuickPicksScreen.routeName: (_) => const QuickPicksScreen(),
       };
 }
