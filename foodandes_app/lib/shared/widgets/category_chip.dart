@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:foodandes_app/core/constants/app_colors.dart';
 
 class CategoryChip extends StatelessWidget {
   final String label;
@@ -15,21 +14,25 @@ class CategoryChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Padding(
       padding: const EdgeInsets.only(right: 10),
       child: ChoiceChip(
         label: Text(label),
         selected: selected,
         onSelected: (_) => onTap?.call(),
-        selectedColor: AppColors.primary,
-        backgroundColor: Colors.white,
+        selectedColor: colorScheme.primary,
+        backgroundColor: colorScheme.surface,
         labelStyle: TextStyle(
-          color: selected ? Colors.white : AppColors.textPrimary,
+          color: selected ? colorScheme.onPrimary : colorScheme.onSurface,
           fontWeight: FontWeight.w500,
         ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14),
-          side: const BorderSide(color: AppColors.border),
+          side: BorderSide(
+            color: selected ? colorScheme.primary : colorScheme.outlineVariant,
+          ),
         ),
       ),
     );

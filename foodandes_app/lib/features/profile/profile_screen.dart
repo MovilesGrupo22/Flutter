@@ -5,6 +5,7 @@ import 'package:foodandes_app/core/constants/app_colors.dart';
 import 'package:foodandes_app/data/services/auth_services.dart';
 import 'package:foodandes_app/data/services/connectivity_service.dart';
 import 'package:foodandes_app/data/services/saved_meal_plan_service.dart';
+import 'package:foodandes_app/data/services/theme_mode_service.dart';
 import 'package:foodandes_app/shared/widgets/app_cached_image.dart';
 import 'package:foodandes_app/shared/widgets/offline_protected_notice.dart';
 import 'package:foodandes_app/data/services/user_service.dart';
@@ -94,6 +95,151 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
   }
 
+  Future<void> _updateThemePreference(AppThemePreference preference) async {
+    await ThemeModeService.instance.setPreference(preference);
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Appearance updated: ${preference.label}'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  String _ambientLightDescription(ThemeModeService themeModeService) {
+    final lux = themeModeService.lastLux;
+    if (lux == null) {
+      return 'Waiting for the ambient-light sensor on this device.';
+    }
+
+    final roundedLux = lux.toStringAsFixed(1);
+    final lightState = themeModeService.isLowLight ? 'low light' : 'enough light';
+    return 'Ambient light: $roundedLux lux · $lightState';
+  }
+
+  Widget _buildAppearanceSettingsCard() {
+    return AnimatedBuilder(
+      animation: ThemeModeService.instance,
+      builder: (context, _) {
+        final themeModeService = ThemeModeService.instance;
+        final colorScheme = Theme.of(context).colorScheme;
+        final isAdaptive = themeModeService.preference == AppThemePreference.adaptive;
+
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: colorScheme.primary.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Icon(
+                        themeModeService.preference.icon,
+                        color: colorScheme.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Appearance',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            themeModeService.effectiveLabel,
+                            style: TextStyle(
+                              color: colorScheme.onSurface.withOpacity(0.68),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                DropdownButtonFormField<AppThemePreference>(
+                  value: themeModeService.preference,
+                  decoration: const InputDecoration(
+                    labelText: 'Theme mode',
+                  ),
+                  items: AppThemePreference.values.map((preference) {
+                    return DropdownMenuItem(
+                      value: preference,
+                      child: Row(
+                        children: [
+                          Icon(preference.icon, size: 20),
+                          const SizedBox(width: 10),
+                          Text(preference.label),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (preference) {
+                    if (preference == null) return;
+                    unawaited(_updateThemePreference(preference));
+                  },
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  themeModeService.preference.description,
+                  style: TextStyle(
+                    color: colorScheme.onSurface.withOpacity(0.68),
+                  ),
+                ),
+                if (isAdaptive) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: themeModeService.isLowLight
+                          ? colorScheme.primary.withOpacity(0.14)
+                          : colorScheme.surfaceContainerHighest.withOpacity(0.55),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          themeModeService.isLowLight
+                              ? Icons.nights_stay_outlined
+                              : Icons.wb_sunny_outlined,
+                          color: colorScheme.primary,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            _ambientLightDescription(themeModeService),
+                            style: TextStyle(
+                              color: colorScheme.onSurface.withOpacity(0.76),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _logout() async {
     final currentUser = FirebaseAuth.instance.currentUser;
 
@@ -117,6 +263,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildSavedMealPlansAccessCard(int savedPlansCount) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Card(
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
@@ -129,12 +277,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 width: 46,
                 height: 46,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFF3E6),
+                  color: colorScheme.primary.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.bookmarks_outlined,
-                  color: AppColors.primary,
+                  color: colorScheme.primary,
                 ),
               ),
               const SizedBox(width: 14),
@@ -154,7 +302,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       savedPlansCount == 0
                           ? 'Open your locally saved food plans'
                           : '$savedPlansCount plans saved locally',
-                      style: const TextStyle(color: AppColors.textSecondary),
+                      style: TextStyle(
+                        color: colorScheme.onSurface.withOpacity(0.68),
+                      ),
                     ),
                   ],
                 ),
@@ -328,6 +478,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             );
                           },
                         ),
+                        const SizedBox(height: 16),
+                        _buildAppearanceSettingsCard(),
                         const SizedBox(height: 16),
                         OutlinedButton(
                           style: OutlinedButton.styleFrom(
