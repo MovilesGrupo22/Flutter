@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:foodandes_app/core/constants/app_colors.dart';
 import 'package:foodandes_app/data/services/analytics_service.dart';
 import 'package:foodandes_app/features/favorites/favorites_screen.dart';
 import 'package:foodandes_app/features/home/home_screen.dart';
@@ -62,31 +61,33 @@ class CustomBottomNavbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return NavigationBar(
       selectedIndex: currentIndex,
-      indicatorColor: Colors.transparent,
-      backgroundColor: Colors.white,
+      indicatorColor: colorScheme.primary.withOpacity(0.12),
+      backgroundColor: colorScheme.surface,
       labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
       onDestinationSelected: (index) => _onTap(context, index),
-      destinations: const [
+      destinations: [
         NavigationDestination(
-          icon: Icon(Icons.home_outlined),
-          selectedIcon: Icon(Icons.home, color: AppColors.primary),
+          icon: const Icon(Icons.home_outlined),
+          selectedIcon: Icon(Icons.home, color: colorScheme.primary),
           label: 'Home',
         ),
         NavigationDestination(
-          icon: Icon(Icons.map_outlined),
-          selectedIcon: Icon(Icons.map, color: AppColors.primary),
+          icon: const Icon(Icons.map_outlined),
+          selectedIcon: Icon(Icons.map, color: colorScheme.primary),
           label: 'Map',
         ),
         NavigationDestination(
-          icon: Icon(Icons.search_outlined),
-          selectedIcon: Icon(Icons.search, color: AppColors.primary),
+          icon: const Icon(Icons.search_outlined),
+          selectedIcon: Icon(Icons.search, color: colorScheme.primary),
           label: 'Search',
         ),
         NavigationDestination(
-          icon: Icon(Icons.favorite_border),
-          selectedIcon: Icon(Icons.favorite, color: AppColors.primary),
+          icon: const Icon(Icons.favorite_border),
+          selectedIcon: Icon(Icons.favorite, color: colorScheme.primary),
           label: 'Favorites',
         ),
       ],

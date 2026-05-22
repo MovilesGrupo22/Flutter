@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:foodandes_app/app/routes.dart';
 import 'package:foodandes_app/app/theme.dart';
 import 'package:foodandes_app/data/services/adaptive_brightness_service.dart';
+import 'package:foodandes_app/data/services/theme_mode_service.dart';
 import 'package:foodandes_app/data/services/analytics_service.dart';
 import 'package:foodandes_app/features/auth/auth_gate.dart';
 
@@ -20,6 +21,7 @@ class _FoodAndesAppState extends State<FoodAndesApp>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    ThemeModeService.instance.load();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       AdaptiveBrightnessService.instance.start();
     });
@@ -49,13 +51,20 @@ class _FoodAndesAppState extends State<FoodAndesApp>
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Restaurandes',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      routes: AppRoutes.routes,
-      navigatorObservers: [_navigationObserver],
-      home: const AuthGate(),
+    return AnimatedBuilder(
+      animation: ThemeModeService.instance,
+      builder: (context, _) {
+        return MaterialApp(
+          title: 'Restaurandes',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: ThemeModeService.instance.effectiveThemeMode,
+          routes: AppRoutes.routes,
+          navigatorObservers: [_navigationObserver],
+          home: const AuthGate(),
+        );
+      },
     );
   }
 }

@@ -24,6 +24,7 @@ class RestaurantCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final titleFontSize = compact ? 18.0 : 22.0;
     final metadataFontSize = compact ? 13.0 : 14.0;
     final contentPadding = compact ? 12.0 : 14.0;
@@ -45,13 +46,13 @@ class RestaurantCard extends StatelessWidget {
                     imageUrl: restaurant.imageURL,
                     fit: BoxFit.cover,
                     placeholder: (context, url) => Container(
-                      color: Colors.grey.shade300,
+                      color: colorScheme.surfaceContainerHighest,
                       child: const Center(
                         child: CircularProgressIndicator(),
                       ),
                     ),
                     errorWidget: (context, url, error) => Container(
-                      color: Colors.grey.shade300,
+                      color: colorScheme.surfaceContainerHighest,
                       child: const Center(
                         child: Icon(Icons.image_not_supported, size: 40),
                       ),
@@ -66,7 +67,7 @@ class RestaurantCard extends StatelessWidget {
                       onTap: onFavoriteTap,
                       child: CircleAvatar(
                         radius: 22,
-                        backgroundColor: Colors.white,
+                        backgroundColor: colorScheme.surface,
                         child: Icon(
                           favoriteFilled
                               ? Icons.favorite
@@ -96,7 +97,7 @@ class RestaurantCard extends StatelessWidget {
                     style: TextStyle(
                       fontSize: titleFontSize,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
+                      color: colorScheme.onSurface,
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -106,7 +107,7 @@ class RestaurantCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: metadataFontSize,
-                      color: AppColors.textSecondary,
+                      color: colorScheme.onSurface.withOpacity(0.62),
                     ),
                   ),
                   const SizedBox(height: 10),

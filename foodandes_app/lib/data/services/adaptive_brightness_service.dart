@@ -4,6 +4,8 @@ import 'package:ambient_light/ambient_light.dart';
 import 'package:flutter/foundation.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 
+import 'package:foodandes_app/data/services/theme_mode_service.dart';
+
 class AdaptiveBrightnessService {
   AdaptiveBrightnessService._();
 
@@ -63,6 +65,8 @@ class AdaptiveBrightnessService {
   }
 
   Future<void> _applyBrightnessForLux(double lux) async {
+    ThemeModeService.instance.updateAmbientLux(lux);
+
     final now = DateTime.now();
 
     if (_lastAppliedAt != null &&

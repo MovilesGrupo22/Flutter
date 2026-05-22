@@ -12,6 +12,8 @@ import 'package:foodandes_app/data/services/preferences_service.dart';
 import 'package:foodandes_app/data/services/restaurant_filter_isolate.dart';
 import 'package:foodandes_app/data/services/trending_restaurants_service.dart';
 import 'package:foodandes_app/features/home/widgets/cas_dining_banner.dart';
+import 'package:foodandes_app/features/meal_plan/meal_plan_screen.dart';
+import 'package:foodandes_app/features/meal_plan/saved_meal_plans_screen.dart';
 import 'package:foodandes_app/features/profile/profile_screen.dart';
 import 'package:foodandes_app/features/recently_viewed/recently_viewed_screen.dart';
 import 'package:foodandes_app/features/restaurant/restaurant_detail_screen.dart';
@@ -22,6 +24,16 @@ import 'package:foodandes_app/shared/widgets/connectivity_status_dot.dart';
 import 'package:foodandes_app/shared/widgets/custom_bottom_navbar.dart';
 import 'package:foodandes_app/shared/widgets/offline_banner.dart';
 import 'package:foodandes_app/shared/widgets/restaurant_card.dart';
+import 'package:foodandes_app/features/quick_picks/quick_picks_screen.dart';
+
+enum _HomeMenuDestination {
+  search,
+  quickPicks,
+  mealPlanner,
+  savedMealPlans,
+  recentlyViewed,
+  profile,
+}
 
 class HomeScreen extends StatefulWidget {
   static const String routeName = '/home';
@@ -209,11 +221,28 @@ class _HomeScreenState extends State<HomeScreen> {
       // Runs on a background Isolate — main thread stays responsive.
       final result = await RestaurantFilterIsolate.run(params);
 
-    if (!mounted || runId != _filterRunId) return;
-    setState(() {
-      _filteredRestaurants = result;
-      _isFiltering = false;
-    });
+      if (!mounted || runId != _filterRunId) return;
+      setState(() {
+        _filteredRestaurants = result;
+        _isFiltering = false;
+      });
+    } catch (error) {
+      debugPrint('Home filter isolate ERROR -> $error');
+
+      final fallback = _repository.filterRestaurants(
+        restaurants: _allRestaurants,
+        selectedCategory: _selectedCategory,
+        onlyOpen: _onlyOpen,
+        onlyTopRated: _onlyTopRated,
+        selectedPriceRange: _selectedPriceRange,
+      );
+
+      if (!mounted || runId != _filterRunId) return;
+      setState(() {
+        _filteredRestaurants = fallback;
+        _isFiltering = false;
+      });
+    }
   }
 
   // ── STRATEGY 3: Future + async/await ───────────────────────────────────────
@@ -701,13 +730,49 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<void> _openHomeMenuDestination(
+    _HomeMenuDestination destination,
+  ) async {
+    switch (destination) {
+      case _HomeMenuDestination.search:
+        await _logHomeInteraction('open_search_from_home_menu');
+        if (!mounted) return;
+        await Navigator.pushNamed(context, SearchEmptyScreen.routeName);
+        break;
+      case _HomeMenuDestination.quickPicks:
+        await _logHomeInteraction('open_quick_picks_from_home_menu');
+        if (!mounted) return;
+        await Navigator.pushNamed(context, QuickPicksScreen.routeName);
+        break;
+      case _HomeMenuDestination.mealPlanner:
+        await _logHomeInteraction('open_meal_planner_from_home_menu');
+        if (!mounted) return;
+        await Navigator.pushNamed(context, MealPlanScreen.routeName);
+        break;
+      case _HomeMenuDestination.savedMealPlans:
+        await _logHomeInteraction('open_saved_meal_plans_from_home_menu');
+        if (!mounted) return;
+        await Navigator.pushNamed(context, SavedMealPlansScreen.routeName);
+        break;
+      case _HomeMenuDestination.recentlyViewed:
+        await _logHomeInteraction('open_recently_viewed_from_home_menu');
+        if (!mounted) return;
+        await Navigator.pushNamed(context, RecentlyViewedScreen.routeName);
+        break;
+      case _HomeMenuDestination.profile:
+        await _logHomeInteraction('open_profile_from_home_menu');
+        if (!mounted) return;
+        await Navigator.pushNamed(context, ProfileScreen.routeName);
+        break;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Restaurandes'),
         actions: [
-          // Tiny spinner while the background Isolate is running
           if (_isFiltering)
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 12),
@@ -720,30 +785,64 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-          IconButton(
-            onPressed: () async {
-              await _logHomeInteraction('open_search_from_home');
-              if (!context.mounted) return;
-              await Navigator.pushNamed(context, SearchEmptyScreen.routeName);
+          PopupMenuButton<_HomeMenuDestination>(
+            tooltip: 'Open app menu',
+            icon: const Icon(Icons.menu),
+            onSelected: (destination) {
+              unawaited(_openHomeMenuDestination(destination));
             },
-            icon: const Icon(Icons.search),
-          ),
-          IconButton(
-            tooltip: 'Recently viewed',
-            onPressed: () async {
-              await _logHomeInteraction('open_recently_viewed_from_home');
-              if (!context.mounted) return;
-              await Navigator.pushNamed(context, RecentlyViewedScreen.routeName);
-            },
-            icon: const Icon(Icons.history),
-          ),
-          IconButton(
-            onPressed: () async {
-              await _logHomeInteraction('open_profile_from_home');
-              if (!context.mounted) return;
-              await Navigator.pushNamed(context, ProfileScreen.routeName);
-            },
-            icon: const ConnectivityAwareProfileIcon(),
+            itemBuilder: (context) => const [
+              PopupMenuItem(
+                value: _HomeMenuDestination.search,
+                child: _HomeMenuItem(
+                  icon: Icons.search,
+                  title: 'Search',
+                  subtitle: 'Find restaurants',
+                ),
+              ),
+              PopupMenuItem(
+                value: _HomeMenuDestination.quickPicks,
+                child: _HomeMenuItem(
+                  icon: Icons.auto_awesome,
+                  title: 'Smart quick picks',
+                  subtitle: 'Fast recommendations',
+                ),
+              ),
+              PopupMenuItem(
+                value: _HomeMenuDestination.mealPlanner,
+                child: _HomeMenuItem(
+                  icon: Icons.restaurant_menu,
+                  title: 'Meal planner',
+                  subtitle: 'Plan meals with cached matches',
+                ),
+              ),
+              PopupMenuItem(
+                value: _HomeMenuDestination.savedMealPlans,
+                child: _HomeMenuItem(
+                  icon: Icons.bookmarks_outlined,
+                  title: 'Saved meal plans',
+                  subtitle: 'Review local food plans',
+                ),
+              ),
+              PopupMenuItem(
+                value: _HomeMenuDestination.recentlyViewed,
+                child: _HomeMenuItem(
+                  icon: Icons.history,
+                  title: 'Recently viewed',
+                  subtitle: 'Restaurants opened before',
+                ),
+              ),
+              PopupMenuDivider(),
+              PopupMenuItem(
+                value: _HomeMenuDestination.profile,
+                child: _HomeMenuItem(
+                  icon: Icons.person_outline,
+                  title: 'Profile',
+                  subtitle: 'Account and connectivity status',
+                  trailing: ConnectivityStatusDot(size: 9, showBorder: false),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -754,6 +853,56 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           OfflineBanner(isOffline: _isOffline),
           Expanded(child: _buildHomeContent()),
+        ],
+      ),
+    );
+  }
+}
+
+class _HomeMenuItem extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Widget? trailing;
+
+  const _HomeMenuItem({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 230,
+      child: Row(
+        children: [
+          Icon(icon),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: Theme.of(context).textTheme.bodySmall,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          if (trailing != null) ...[
+            const SizedBox(width: 8),
+            trailing!,
+          ],
         ],
       ),
     );
