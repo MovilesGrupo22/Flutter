@@ -22,6 +22,7 @@ import 'package:foodandes_app/shared/widgets/connectivity_status_dot.dart';
 import 'package:foodandes_app/shared/widgets/custom_bottom_navbar.dart';
 import 'package:foodandes_app/shared/widgets/offline_banner.dart';
 import 'package:foodandes_app/shared/widgets/restaurant_card.dart';
+import 'package:foodandes_app/features/quick_picks/quick_picks_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   static const String routeName = '/home';
@@ -724,7 +725,6 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('Restaurandes'),
         actions: [
-          // Tiny spinner while the background Isolate is running
           if (_isFiltering)
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 12),
@@ -744,6 +744,15 @@ class _HomeScreenState extends State<HomeScreen> {
               await Navigator.pushNamed(context, SearchEmptyScreen.routeName);
             },
             icon: const Icon(Icons.search),
+          ),
+          IconButton(
+            tooltip: 'Smart quick picks',
+            onPressed: () async {
+              await _logHomeInteraction('open_quick_picks_from_home');
+              if (!context.mounted) return;
+              await Navigator.pushNamed(context, QuickPicksScreen.routeName);
+            },
+            icon: const Icon(Icons.auto_awesome),
           ),
           IconButton(
             tooltip: 'Recently viewed',
