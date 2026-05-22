@@ -18,6 +18,7 @@ import 'package:foodandes_app/features/restaurant/restaurant_detail_screen.dart'
 import 'package:foodandes_app/features/search/search_empty_screen.dart';
 import 'package:foodandes_app/models/restaurant.dart';
 import 'package:foodandes_app/shared/widgets/category_chip.dart';
+import 'package:foodandes_app/shared/widgets/connectivity_status_dot.dart';
 import 'package:foodandes_app/shared/widgets/custom_bottom_navbar.dart';
 import 'package:foodandes_app/shared/widgets/offline_banner.dart';
 import 'package:foodandes_app/shared/widgets/restaurant_card.dart';
@@ -204,8 +205,9 @@ class _HomeScreenState extends State<HomeScreen> {
       moodTags: mood.recommendedTags,
     );
 
-    // Runs on a background Isolate — main thread stays responsive
-    final result = await RestaurantFilterIsolate.run(params);
+    try {
+      // Runs on a background Isolate — main thread stays responsive.
+      final result = await RestaurantFilterIsolate.run(params);
 
     if (!mounted || runId != _filterRunId) return;
     setState(() {
@@ -304,7 +306,25 @@ class _HomeScreenState extends State<HomeScreen> {
     final userId = FirebaseAuth.instance.currentUser?.uid;
     final willBeFavorite = !restaurant.isFavorite;
     _applyFavoriteStateLocally(restaurant.id, willBeFavorite);
-    await _repository.toggleFavorite(restaurant.id);
+    try {
+      await _repository.toggleFavorite(restaurant.id);
+    } catch (error) {
+      _applyFavoriteStateLocally(restaurant.id, !willBeFavorite);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not update favorite: $error')),
+      );
+      return;
+    }
+
+    if (_isOffline && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Favorite change saved offline and will sync later.'),
+        ),
+      );
+    }
+
     if (userId != null) {
       await _logHomeInteraction(
         willBeFavorite ? 'favorite_added' : 'favorite_removed',
@@ -723,7 +743,7 @@ class _HomeScreenState extends State<HomeScreen> {
               if (!context.mounted) return;
               await Navigator.pushNamed(context, ProfileScreen.routeName);
             },
-            icon: const Icon(Icons.person_outline),
+            icon: const ConnectivityAwareProfileIcon(),
           ),
         ],
       ),

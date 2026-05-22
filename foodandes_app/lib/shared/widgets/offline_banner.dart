@@ -15,7 +15,11 @@ class OfflineBanner extends StatelessWidget {
         children: [
           Icon(Icons.wifi_off, size: 18),
           SizedBox(width: 8),
-          Text("You're offline — showing saved data"),
+          Expanded(
+            child: Text(
+              'Offline mode · Home is using saved restaurants and local filters',
+            ),
+          ),
         ],
       ),
     );

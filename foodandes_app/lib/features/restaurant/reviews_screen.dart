@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:foodandes_app/core/constants/app_colors.dart';
 import 'package:foodandes_app/data/repositories/review_repository.dart';
+import 'package:foodandes_app/data/services/connectivity_service.dart';
 import 'package:foodandes_app/data/services/user_service.dart';
 import 'package:foodandes_app/models/review.dart';
 import 'package:foodandes_app/models/user_profile.dart';
@@ -8,6 +11,7 @@ import 'package:foodandes_app/features/restaurant/write_review_screen.dart';
 import 'package:flutter/foundation.dart';
 import 'package:foodandes_app/data/services/review_stats_isolate.dart';
 import 'package:foodandes_app/data/services/reviews_lru_cache_service.dart';
+import 'package:foodandes_app/shared/widgets/offline_protected_notice.dart';
 
 class ReviewsInitialData {
   final List<Review> reviews;
@@ -37,6 +41,32 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
 
   Future<ReviewsInitialData>? _initialDataFuture;
   Stream<List<Review>>? _reviewsStream;
+  bool _isOffline = false;
+  StreamSubscription<bool>? _connectivitySubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _initConnectivity();
+  }
+
+  Future<void> _initConnectivity() async {
+    final online = await ConnectivityService.instance.isOnline;
+    if (!mounted) return;
+    setState(() => _isOffline = !online);
+
+    _connectivitySubscription =
+        ConnectivityService.instance.isOnlineStream.listen((isOnline) {
+      if (!mounted) return;
+      setState(() => _isOffline = !isOnline);
+    });
+  }
+
+  @override
+  void dispose() {
+    _connectivitySubscription?.cancel();
+    super.dispose();
+  }
 
   @override
   void didChangeDependencies() {
@@ -191,6 +221,13 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
                   return ListView(
                     padding: const EdgeInsets.all(16),
                     children: [
+                      if (_isOffline)
+                        const Padding(
+                          padding: EdgeInsets.only(bottom: 12),
+                          child: OfflineProtectedNotice(
+                            message: 'Offline mode · showing cached reviews when available',
+                          ),
+                        ),
                       if (reviewSnapshot.hasError)
                         Container(
                           margin: const EdgeInsets.only(bottom: 12),

@@ -29,11 +29,17 @@ class LocalDatabaseService {
             id TEXT PRIMARY KEY,
             name TEXT,
             category TEXT,
+            description TEXT,
             rating REAL,
+            review_count INTEGER,
             price_range TEXT,
             is_open INTEGER,
             image_url TEXT,
+            latitude REAL,
+            longitude REAL,
+            opening_hours TEXT,
             address TEXT,
+            phone TEXT,
             tags_json TEXT,
             cached_at INTEGER
           )
@@ -61,6 +67,19 @@ class LocalDatabaseService {
         }
       },
     );
+  }
+
+  Future<void> _addColumnIfMissing(
+    Database db,
+    String table,
+    String column,
+    String type,
+  ) async {
+    final info = await db.rawQuery('PRAGMA table_info($table)');
+    final exists = info.any((row) => row['name'] == column);
+    if (!exists) {
+      await db.execute('ALTER TABLE $table ADD COLUMN $column $type');
+    }
   }
 
   Future<void> _createSearchHistoryTable(Database db) async {
@@ -107,11 +126,17 @@ class LocalDatabaseService {
           'id': r.id,
           'name': r.name,
           'category': r.category,
+          'description': r.description,
           'rating': r.rating,
+          'review_count': r.reviewCount,
           'price_range': r.priceRange,
           'is_open': r.isOpen ? 1 : 0,
           'image_url': r.imageURL,
+          'latitude': r.latitude,
+          'longitude': r.longitude,
+          'opening_hours': r.openingHours,
           'address': r.address,
+          'phone': r.phone,
           'tags_json': jsonEncode(r.tags),
           'cached_at': DateTime.now().millisecondsSinceEpoch,
         },
@@ -134,18 +159,18 @@ class LocalDatabaseService {
         id: row['id'] as String,
         name: row['name'] as String? ?? '',
         category: row['category'] as String? ?? '',
-        description: '',
+        description: row['description'] as String? ?? '',
         imageURL: row['image_url'] as String? ?? '',
         isOpen: (row['is_open'] as int? ?? 0) == 1,
-        latitude: 0.0,
-        longitude: 0.0,
-        openingHours: '',
+        latitude: (row['latitude'] as num?)?.toDouble() ?? 0.0,
+        longitude: (row['longitude'] as num?)?.toDouble() ?? 0.0,
+        openingHours: row['opening_hours'] as String? ?? '',
         priceRange: row['price_range'] as String? ?? '',
         rating: (row['rating'] as num?)?.toDouble() ?? 0.0,
-        reviewCount: 0,
+        reviewCount: (row['review_count'] as num?)?.toInt() ?? 0,
         tags: tags,
         address: row['address'] as String? ?? '',
-        phone: '',
+        phone: row['phone'] as String? ?? '',
       );
     }).toList();
   }
@@ -169,18 +194,18 @@ class LocalDatabaseService {
       id: row['id'] as String,
       name: row['name'] as String? ?? '',
       category: row['category'] as String? ?? '',
-      description: '',
+      description: row['description'] as String? ?? '',
       imageURL: row['image_url'] as String? ?? '',
       isOpen: (row['is_open'] as int? ?? 0) == 1,
-      latitude: 0.0,
-      longitude: 0.0,
-      openingHours: '',
+      latitude: (row['latitude'] as num?)?.toDouble() ?? 0.0,
+      longitude: (row['longitude'] as num?)?.toDouble() ?? 0.0,
+      openingHours: row['opening_hours'] as String? ?? '',
       priceRange: row['price_range'] as String? ?? '',
       rating: (row['rating'] as num?)?.toDouble() ?? 0.0,
-      reviewCount: 0,
+      reviewCount: (row['review_count'] as num?)?.toInt() ?? 0,
       tags: tags,
       address: row['address'] as String? ?? '',
-      phone: '',
+      phone: row['phone'] as String? ?? '',
     );
   }
 
@@ -223,6 +248,30 @@ class LocalDatabaseService {
     );
 
     return rows.map((r) => r['restaurant_id'] as String).toList();
+  }
+
+  Future<void> replaceFavoriteIds(String userId, List<String> restaurantIds) async {
+    final db = await _database;
+    final batch = db.batch();
+
+    batch.delete(
+      'user_favorites',
+      where: 'user_id = ?',
+      whereArgs: [userId],
+    );
+
+    for (final restaurantId in restaurantIds.toSet()) {
+      batch.insert(
+        'user_favorites',
+        {
+          'user_id': userId,
+          'restaurant_id': restaurantId,
+        },
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+    }
+
+    await batch.commit(noResult: true);
   }
 
   Future<void> insertSearchQuery(String query) async {

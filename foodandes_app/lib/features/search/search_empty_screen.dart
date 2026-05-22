@@ -2,6 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:foodandes_app/data/repositories/restaurant_repository.dart';
+import 'package:foodandes_app/shared/widgets/offline_protected_notice.dart';
+import 'package:foodandes_app/data/services/restaurant_filter_isolate.dart';
+import 'package:foodandes_app/data/services/connectivity_service.dart';
 import 'package:foodandes_app/data/services/search_history_service.dart';
 import 'package:foodandes_app/features/restaurant/restaurant_detail_screen.dart';
 import 'package:foodandes_app/models/restaurant.dart';
@@ -32,12 +35,17 @@ class _SearchEmptyScreenState extends State<SearchEmptyScreen> {
   List<Restaurant> _filteredRestaurants = [];
   List<String> _searchHistory = [];
   bool _isLoadingRestaurants = true;
+  bool _isSearching = false;
+  bool _isOffline = false;
+  int _searchRunId = 0;
+  StreamSubscription<bool>? _connectivitySubscription;
   Timer? _searchAnalyticsDebounce;
   String _lastTrackedQuery = '';
 
   @override
   void initState() {
     super.initState();
+    _initConnectivity();
     _loadRestaurants();
     _loadHistory();
 
@@ -48,6 +56,18 @@ class _SearchEmptyScreenState extends State<SearchEmptyScreen> {
         section: AppSection.search,
         userId: userId,
       );
+    });
+  }
+
+  Future<void> _initConnectivity() async {
+    final online = await ConnectivityService.instance.isOnline;
+    if (!mounted) return;
+    setState(() => _isOffline = !online);
+
+    _connectivitySubscription =
+        ConnectivityService.instance.isOnlineStream.listen((isOnline) {
+      if (!mounted) return;
+      setState(() => _isOffline = !isOnline);
     });
   }
 
@@ -107,61 +127,123 @@ class _SearchEmptyScreenState extends State<SearchEmptyScreen> {
 
     _allRestaurantsFuture = _repository.fetchRestaurants();
 
-    final restaurants = await _allRestaurantsFuture;
+    try {
+      final restaurants = await _allRestaurantsFuture;
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    setState(() {
-      _allRestaurants = restaurants;
-      _filteredRestaurants = [];
-      _isLoadingRestaurants = false;
-    });
+      setState(() {
+        _allRestaurants = restaurants;
+        _filteredRestaurants = [];
+        _isLoadingRestaurants = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _allRestaurants = [];
+        _filteredRestaurants = [];
+        _isLoadingRestaurants = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not load restaurants: $error')),
+      );
+    }
   }
 
   void _onSearchChanged(String value) {
+    unawaited(_applySearchAsync(value));
+  }
+
+  Future<void> _applySearchAsync(String value) async {
     final trimmedValue = value.trim();
-    final results = _repository.filterRestaurants(
+    final runId = ++_searchRunId;
+
+    if (_allRestaurants.isEmpty) {
+      setState(() {
+        _filteredRestaurants = [];
+        _isSearching = false;
+      });
+      return;
+    }
+
+    setState(() => _isSearching = true);
+
+    final params = FilterParams(
       restaurants: _allRestaurants,
       query: value,
     );
 
-    setState(() {
-      _filteredRestaurants = results;
-    });
+    try {
+      final results = await RestaurantFilterIsolate.run(params);
 
-    _searchAnalyticsDebounce?.cancel();
+      if (!mounted || runId != _searchRunId) return;
 
-    if (trimmedValue.isEmpty) {
-      _lastTrackedQuery = '';
-      return;
+      setState(() {
+        _filteredRestaurants = results;
+        _isSearching = false;
+      });
+
+      _searchAnalyticsDebounce?.cancel();
+
+      if (trimmedValue.isEmpty) {
+        _lastTrackedQuery = '';
+        return;
+      }
+
+      _searchAnalyticsDebounce = Timer(const Duration(milliseconds: 500), () {
+        if (!mounted || trimmedValue == _lastTrackedQuery) return;
+
+        _lastTrackedQuery = trimmedValue;
+        final userId = FirebaseAuth.instance.currentUser?.uid;
+
+        AnalyticsService.instance.logSearch(
+          query: trimmedValue,
+          resultsCount: results.length,
+          userId: userId,
+        );
+
+        _logSearchInteraction(
+          'search_executed',
+          additionalParameters: {
+            'results_count': results.length,
+          },
+        );
+      });
+    } catch (error) {
+      debugPrint('Search isolate ERROR -> $error');
+      final results = _repository.filterRestaurants(
+        restaurants: _allRestaurants,
+        query: value,
+      );
+      if (!mounted || runId != _searchRunId) return;
+      setState(() {
+        _filteredRestaurants = results;
+        _isSearching = false;
+      });
     }
-
-    _searchAnalyticsDebounce = Timer(const Duration(milliseconds: 500), () {
-      if (!mounted || trimmedValue == _lastTrackedQuery) return;
-
-      _lastTrackedQuery = trimmedValue;
-      final userId = FirebaseAuth.instance.currentUser?.uid;
-
-      AnalyticsService.instance.logSearch(
-        query: trimmedValue,
-        resultsCount: results.length,
-        userId: userId,
-      );
-
-      _logSearchInteraction(
-        'search_executed',
-        additionalParameters: {
-          'results_count': results.length,
-        },
-      );
-    });
   }
 
   Future<void> _toggleFavorite(Restaurant restaurant) async {
     final userId = FirebaseAuth.instance.currentUser?.uid;
     final willBeFavorite = !restaurant.isFavorite;
 
-    await _repository.toggleFavorite(restaurant.id);
+    try {
+      await _repository.toggleFavorite(restaurant.id);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not update favorite: $error')),
+      );
+      return;
+    }
+
+    if (_isOffline && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Favorite change saved offline and will sync later.'),
+        ),
+      );
+    }
 
     await _logSearchInteraction(
       willBeFavorite ? 'favorite_added' : 'favorite_removed',
@@ -193,6 +275,7 @@ class _SearchEmptyScreenState extends State<SearchEmptyScreen> {
   @override
   void dispose() {
     _searchAnalyticsDebounce?.cancel();
+    _connectivitySubscription?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -247,11 +330,19 @@ class _SearchEmptyScreenState extends State<SearchEmptyScreen> {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
+                  if (_isOffline)
+                    const OfflineProtectedNotice(
+                      message: 'Offline mode · searching saved restaurants',
+                    ),
+                  if (_isOffline) const SizedBox(height: 12),
                   CustomSearchBar(
                     controller: _searchController,
                     onChanged: _onSearchChanged,
                     onSubmitted: _saveSearchQuery,
                   ),
+                  const SizedBox(height: 8),
+                  if (_isSearching)
+                    const LinearProgressIndicator(minHeight: 2),
                   const SizedBox(height: 16),
                   Expanded(
                     child: !hasQuery
