@@ -12,6 +12,7 @@ enum AppSection {
   favorites,
   profile,
   detail,
+  mealPlan,
 }
 
 class AnalyticsService {
@@ -55,6 +56,8 @@ class AnalyticsService {
       case '/write-review':
       case '/compare-restaurants':
         return AppSection.detail;
+      case '/meal-plan':
+        return AppSection.mealPlan;
       default:
         return null;
     }

@@ -5,6 +5,7 @@ import 'package:foodandes_app/features/favorites/favorites_empty_screen.dart';
 import 'package:foodandes_app/features/home/home_filtered_screen.dart';
 import 'package:foodandes_app/features/home/home_screen.dart';
 import 'package:foodandes_app/features/map/map_screen.dart';
+import 'package:foodandes_app/features/meal_plan/meal_plan_screen.dart';
 import 'package:foodandes_app/features/profile/profile_screen.dart';
 import 'package:foodandes_app/features/recently_viewed/recently_viewed_screen.dart';
 import 'package:foodandes_app/features/restaurant/restaurant_detail_screen.dart';
@@ -14,6 +15,7 @@ import 'package:foodandes_app/features/favorites/favorites_screen.dart';
 import 'package:foodandes_app/features/restaurant/reviews_screen.dart';
 import 'package:foodandes_app/features/restaurant/write_review_screen.dart';
 import 'package:foodandes_app/features/restaurant/compare_restaurants_screen.dart';
+import 'package:foodandes_app/features/quick_picks/quick_picks_screen.dart';
 
 class AppRoutes {
   static Map<String, WidgetBuilder> get routes => {
@@ -32,5 +34,7 @@ class AppRoutes {
         ReviewsScreen.routeName: (_) => const ReviewsScreen(),
         WriteReviewScreen.routeName: (_) => const WriteReviewScreen(),
         CompareRestaurantsScreen.routeName: (_) => const CompareRestaurantsScreen(),
+        QuickPicksScreen.routeName: (_) => const QuickPicksScreen(),
+        MealPlanScreen.routeName: (_) => const MealPlanScreen(),
       };
 }
