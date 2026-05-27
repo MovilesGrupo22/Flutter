@@ -4,14 +4,7 @@
     <option name="autoReloadType" value="NONE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="928951ce-400b-4bfa-b34c-5d37ea2bedc4" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/foodandes_app/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/foodandes_app/linux/flutter/generated_plugins.cmake" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/linux/flutter/generated_plugins.cmake" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/foodandes_app/macos/Flutter/GeneratedPluginRegistrant.swift" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/macos/Flutter/GeneratedPluginRegistrant.swift" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/foodandes_app/windows/flutter/generated_plugin_registrant.cc" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/windows/flutter/generated_plugin_registrant.cc" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/foodandes_app/windows/flutter/generated_plugins.cmake" beforeDir="false" afterPath="$PROJECT_DIR$/foodandes_app/windows/flutter/generated_plugins.cmake" afterDir="false" />
-    </list>
+    <list default="true" id="928951ce-400b-4bfa-b34c-5d37ea2bedc4" name="Changes" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -41,7 +34,7 @@
     "RunOnceActivity.readMode.enableVisualFormatting": "true",
     "cf.first.check.clang-format": "false",
     "cidr.known.project.marker": "true",
-    "git-widget-placeholder": "sprint4-profiling-optimization",
+    "git-widget-placeholder": "nigth-screan-trial",
     "kotlin-language-version-configured": "true",
     "last_opened_file_path": "C:/Users/sergi/Documents/Flutter",
     "settings.editor.selected.configurable": "AndroidSdkUpdater"

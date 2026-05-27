@@ -242,8 +242,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         borderRadius: BorderRadius.circular(16),
                       ),
                     ),
-                    onPressed:
-                        _isGoogleLoading ? null : _handleGoogleRegister,
+                    onPressed: _isGoogleLoading || _isOffline
+                        ? null
+                        : _handleGoogleRegister,
                     icon: _isGoogleLoading
                         ? const SizedBox(
                             width: 20,
@@ -255,9 +256,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             Icons.account_circle_outlined,
                             color: AppColors.textPrimary,
                           ),
-                    label: const Text(
-                      'Sign up with Google',
-                      style: TextStyle(
+                    label: Text(
+                      _isOffline ? 'Google unavailable offline' : 'Sign up with Google',
+                      style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                         color: AppColors.textPrimary,
@@ -346,7 +347,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         borderRadius: BorderRadius.circular(16),
                       ),
                     ),
-                    onPressed: _isLoading ? null : _handleRegister,
+                    onPressed: _isLoading || _isOffline ? null : _handleRegister,
                     child: _isLoading
                         ? const SizedBox(
                             width: 22,
@@ -356,9 +357,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               color: Colors.white,
                             ),
                           )
-                        : const Text(
-                            'Create account',
-                            style: TextStyle(
+                        : Text(
+                            _isOffline ? 'Registration unavailable offline' : 'Create account',
+                            style: const TextStyle(
                               fontSize: 17,
                               fontWeight: FontWeight.w700,
                             ),

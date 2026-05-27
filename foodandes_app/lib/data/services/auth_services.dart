@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:foodandes_app/data/services/connectivity_service.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 class AuthServices {
@@ -59,6 +60,14 @@ class AuthServices {
   }
 
   Future<UserCredential?> signInWithGoogle() async {
+    final online = await ConnectivityService.instance.isOnlineWithHandlers();
+    if (!online) {
+      throw FirebaseAuthException(
+        code: 'network-request-failed',
+        message: 'Google sign-in requires an internet connection.',
+      );
+    }
+
     final googleUser = await _googleSignIn.signIn();
     if (googleUser == null) return null;
 

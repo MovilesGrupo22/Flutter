@@ -1,9 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:foodandes_app/core/constants/app_colors.dart';
+import 'package:foodandes_app/data/services/connectivity_service.dart';
+import 'package:foodandes_app/data/services/meal_plan_file_export_service.dart';
 import 'package:foodandes_app/data/services/saved_meal_plan_service.dart';
 import 'package:foodandes_app/features/meal_plan/meal_plan_screen.dart';
 import 'package:foodandes_app/features/restaurant/restaurant_detail_screen.dart';
 import 'package:foodandes_app/models/meal_plan.dart';
+import 'package:foodandes_app/shared/widgets/offline_protected_notice.dart';
+
+enum _MealPlanExportFormat { json, text }
 
 class SavedMealPlansScreen extends StatefulWidget {
   static const String routeName = '/saved-meal-plans';
@@ -16,12 +23,37 @@ class SavedMealPlansScreen extends StatefulWidget {
 
 class _SavedMealPlansScreenState extends State<SavedMealPlansScreen> {
   final SavedMealPlanService _savedMealPlanService = SavedMealPlanService.instance;
+  final MealPlanFileExportService _fileExportService =
+      MealPlanFileExportService.instance;
+
   late Future<List<SavedMealPlan>> _savedPlansFuture;
+  StreamSubscription<bool>? _connectivitySubscription;
+  bool _isOffline = false;
+  bool _isExporting = false;
 
   @override
   void initState() {
     super.initState();
     _savedPlansFuture = _savedMealPlanService.getSavedPlans();
+    _initConnectivity();
+  }
+
+  Future<void> _initConnectivity() async {
+    final online = await ConnectivityService.instance.isOnline;
+    if (!mounted) return;
+    setState(() => _isOffline = !online);
+
+    _connectivitySubscription =
+        ConnectivityService.instance.isOnlineStream.listen((isOnline) {
+      if (!mounted) return;
+      setState(() => _isOffline = !isOnline);
+    });
+  }
+
+  @override
+  void dispose() {
+    _connectivitySubscription?.cancel();
+    super.dispose();
   }
 
   void _reload() {
@@ -78,6 +110,111 @@ class _SavedMealPlansScreenState extends State<SavedMealPlansScreen> {
     _reload();
   }
 
+  Future<void> _showExportOptions(SavedMealPlan plan) async {
+    final format = await showModalBottomSheet<_MealPlanExportFormat>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Export meal plan',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'The file is generated locally from the saved plan, so this action also works offline.',
+                  style: TextStyle(color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  leading: const Icon(Icons.data_object),
+                  title: const Text('Export as JSON'),
+                  subtitle: const Text('Structured file for technical evidence'),
+                  onTap: () => Navigator.pop(
+                    context,
+                    _MealPlanExportFormat.json,
+                  ),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.description_outlined),
+                  title: const Text('Export as TXT'),
+                  subtitle: const Text('Human-readable summary'),
+                  onTap: () => Navigator.pop(
+                    context,
+                    _MealPlanExportFormat.text,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (!mounted || format == null) return;
+    await _exportPlan(plan, format);
+  }
+
+  Future<void> _exportPlan(
+    SavedMealPlan plan,
+    _MealPlanExportFormat format,
+  ) async {
+    if (_isExporting) return;
+
+    setState(() => _isExporting = true);
+
+    try {
+      final result = format == _MealPlanExportFormat.json
+          ? await _fileExportService.exportAsJson(plan)
+          : await _fileExportService.exportAsText(plan);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Exported ${result.fileName}'),
+          duration: const Duration(seconds: 6),
+          action: SnackBarAction(
+            label: 'Path',
+            onPressed: () => _showExportPath(result),
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not export meal plan: $error')),
+      );
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
+  void _showExportPath(MealPlanExportResult result) {
+    showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('${result.format} export created'),
+          content: SelectableText(result.filePath),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -124,9 +261,19 @@ class _SavedMealPlansScreenState extends State<SavedMealPlansScreen> {
             child: ListView.separated(
               padding: const EdgeInsets.all(16),
               physics: const AlwaysScrollableScrollPhysics(),
-              itemCount: savedPlans.length + 1,
+              itemCount: savedPlans.length + 1 + (_isOffline ? 1 : 0),
               separatorBuilder: (_, __) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
+                if (_isOffline) {
+                  if (index == 0) {
+                    return const OfflineProtectedNotice(
+                      message:
+                          'Offline mode · saved meal plans and file export still work locally',
+                    );
+                  }
+                  index -= 1;
+                }
+
                 if (index == 0) return _buildHeaderCard(savedPlans.length);
                 return _buildSavedPlanCard(savedPlans[index - 1]);
               },
@@ -163,7 +310,7 @@ class _SavedMealPlansScreenState extends State<SavedMealPlansScreen> {
                 ),
                 const SizedBox(height: 4),
                 const Text(
-                  'These plans are stored on this device with SharedPreferences, so they can be reviewed later without recalculating the recommendation.',
+                  'These plans are stored on this device with SharedPreferences, so they can be reviewed later without recalculating the recommendation. You can also export them as local JSON or TXT files.',
                   style: TextStyle(color: AppColors.textSecondary),
                 ),
               ],
@@ -181,6 +328,13 @@ class _SavedMealPlansScreenState extends State<SavedMealPlansScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            if (_isOffline) ...[
+              const OfflineProtectedNotice(
+                message:
+                    'Offline mode · saved plans are read from local storage',
+              ),
+              const SizedBox(height: 16),
+            ],
             const Icon(
               Icons.bookmarks_outlined,
               size: 64,
@@ -252,10 +406,22 @@ class _SavedMealPlansScreenState extends State<SavedMealPlansScreen> {
                       ],
                     ),
                   ),
-                  IconButton(
-                    tooltip: 'Delete saved plan',
-                    onPressed: () => _deletePlan(plan.id),
-                    icon: const Icon(Icons.delete_outline),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: 'Export saved plan',
+                        onPressed: _isExporting
+                            ? null
+                            : () => _showExportOptions(plan),
+                        icon: const Icon(Icons.file_download_outlined),
+                      ),
+                      IconButton(
+                        tooltip: 'Delete saved plan',
+                        onPressed: () => _deletePlan(plan.id),
+                        icon: const Icon(Icons.delete_outline),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -288,10 +454,20 @@ class _SavedMealPlansScreenState extends State<SavedMealPlansScreen> {
                   ),
               Align(
                 alignment: Alignment.centerRight,
-                child: TextButton.icon(
-                  onPressed: () => _showSavedPlanDetails(plan),
-                  icon: const Icon(Icons.visibility_outlined),
-                  label: const Text('Preview'),
+                child: Wrap(
+                  spacing: 8,
+                  children: [
+                    TextButton.icon(
+                      onPressed: _isExporting ? null : () => _showExportOptions(plan),
+                      icon: const Icon(Icons.file_download_outlined),
+                      label: const Text('Export'),
+                    ),
+                    TextButton.icon(
+                      onPressed: () => _showSavedPlanDetails(plan),
+                      icon: const Icon(Icons.visibility_outlined),
+                      label: const Text('Preview'),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -350,6 +526,17 @@ class _SavedMealPlansScreenState extends State<SavedMealPlansScreen> {
                     },
                   ),
                 ),
+              ),
+              const SizedBox(height: 8),
+              FilledButton.icon(
+                onPressed: _isExporting
+                    ? null
+                    : () {
+                        Navigator.pop(context);
+                        _showExportOptions(plan);
+                      },
+                icon: const Icon(Icons.file_download_outlined),
+                label: const Text('Export plan as file'),
               ),
             ],
           ),
