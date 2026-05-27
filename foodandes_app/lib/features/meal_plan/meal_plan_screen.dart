@@ -280,7 +280,10 @@ class _MealPlanScreenState extends State<MealPlanScreen> {
       ),
       body: Column(
         children: [
-          OfflineBanner(isOffline: _isOffline),
+          OfflineBanner(
+            isOffline: _isOffline,
+            message: 'Offline mode · meal planner uses saved restaurants and cached recommendations',
+          ),
           Expanded(
             child: RefreshIndicator(
               onRefresh: _refresh,

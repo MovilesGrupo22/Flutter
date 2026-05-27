@@ -30,7 +30,7 @@ class RestaurantRepository {
   }
 
   // ── STRATEGY 2: Future + async/await with offline fallback ─────────────────
-  Future<List<Restaurant>> fetchRestaurants() async {
+  Future<List<Restaurant>> fetchRestaurants({bool forceRefresh = true}) async {
     final online = await ConnectivityService.instance.isOnline;
     if (!online) {
       return _fetchRestaurantsFromLocal();
@@ -38,7 +38,7 @@ class RestaurantRepository {
 
     try {
       final results = await Future.wait<dynamic>([
-        _restaurantService.getRestaurants(forceRefresh: true),
+        _restaurantService.getRestaurants(forceRefresh: forceRefresh),
         _userService.getFavoriteRestaurantIds().catchError((_) => <String>[]),
       ]);
 

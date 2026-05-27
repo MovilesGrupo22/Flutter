@@ -1,115 +1,160 @@
-# 🍽️ FoodAndes App
+# FoodAndes App
 
-FoodAndes is a mobile application developed with Flutter that allows users to explore restaurants, view detailed information, read and write reviews, manage favorites, search dynamically, and navigate using Google Maps integration.
+FoodAndes is a mobile application built with Flutter to help users discover restaurants around campus, review food options, save favorites, generate meal plans, and access useful recommendations from a single app.
 
----
-
-## 🚀 Features
-
-* 📍 **Interactive Map**
-
-  * Displays restaurants using Google Maps
-  * Custom markers for each location
-  * Navigate to restaurant detail directly from the map
-
-* 🧭 **Get Directions**
-
-  * Opens Google Maps with real-time directions
-  * Uses device location as origin
-  * Supports walking navigation
-
-* 🔍 **Search**
-
-  * Real-time filtering of restaurants
-  * Search by name, category, tags, or address
-
-* ❤️ **Favorites**
-
-  * Add/remove restaurants from favorites
-  * Synced with Firebase
-
-* 📝 **Reviews**
-
-  * View reviews per restaurant
-  * Create new reviews
-  * Automatic rating updates
-
-* 📱 **Responsive UI**
-
-  * Clean and modern interface
-  * Smooth navigation between screens
+The app combines restaurant discovery, user preferences, saved meal plans, reviews, maps, analytics, and offline-friendly behavior to improve the food decision experience for students and campus users.
 
 ---
 
-## 🛠️ Tech Stack
+## Main Features
 
-* **Flutter**
-* **Dart**
-* **Firebase**
+### Restaurant Discovery
 
-  * Firestore
-  * Authentication
-* **Google Maps API**
-* **google_maps_flutter**
-* **url_launcher**
+Users can browse available restaurants, check basic information, view ratings and reviews, search by name or category, and filter options according to their preferences.
+
+### Restaurant Details
+
+Each restaurant includes useful information such as category, rating, opening status, address, images, reviews, and map access when available.
+
+### Favorites
+
+Users can save restaurants as favorites and access them later from their profile or restaurant flows.
+
+### Reviews
+
+Users can read existing reviews and create their own reviews when the app has connectivity. Drafts and pending actions are handled to avoid losing user input.
+
+### Meal Planner
+
+The app can generate meal plan recommendations based on available restaurants and user preferences. Users can save their plans and access them later.
+
+### Saved Meal Plan Export
+
+Saved meal plans can be exported as local files in JSON or TXT format. This allows users to keep a copy of their plans even when they are offline.
+
+### Smart Quick Picks
+
+The app includes a quick recommendation view that suggests restaurant options based on the current available data.
+
+### Recently Viewed Restaurants
+
+The app keeps track of recently viewed restaurants so users can easily return to places they checked before.
+
+### Map Integration
+
+FoodAndes includes map support to help users locate restaurants and open navigation options when needed.
+
+### Theme Options
+
+Users can switch between light, dark, and system-based visual modes from the profile section.
 
 ---
 
-## 📦 Installation
+## Offline and Connectivity Behavior
 
-1. Clone the repository:
+FoodAndes includes offline-friendly behavior for several parts of the app. When the device has no internet connection, the app avoids silent failures and shows clear messages to the user.
+
+Some previously loaded or locally saved information can still be accessed offline, such as saved meal plans, recently viewed restaurants, search history, and cached restaurant information.
+
+Actions that require external services, such as Google Sign-In, registration, password reset, map refreshes, and remote data synchronization, require an internet connection.
+
+---
+
+## Analytics and Business Questions
+
+The app collects interaction and usage events that support analytics dashboards and business questions. These events can help analyze user behavior, restaurant demand, popular filters, section usage, and recommendation effectiveness.
+
+---
+
+## Tech Stack
+
+- Flutter
+- Dart
+- Firebase Authentication
+- Cloud Firestore
+- Firebase Analytics
+- Google Maps
+- Local storage
+- Connectivity support
+- Image caching
+
+---
+
+## Installation and Setup
+
+### 1. Clone the repository
 
 ```bash
-git clone https://github.com/your-repo/foodandes-app.git
-cd foodandes-app
+git clone <repository-url>
+cd Flutter-main/foodandes_app
 ```
 
-2. Install dependencies:
+### 2. Install dependencies
 
 ```bash
 flutter pub get
 ```
 
-3. Configure Firebase:
+### 3. Configure Firebase
 
-```bash
-flutterfire configure
+Make sure the Firebase configuration files are available for the project.
+
+Common required files include:
+
+```text
+lib/firebase_options.dart
+android/app/google-services.json
 ```
 
-4. Add your Google Maps API key:
+### 4. Configure Google Maps
 
-In `android/app/src/main/AndroidManifest.xml`:
+Add a valid Google Maps API key in the Android configuration before using map features.
 
-```xml
-<meta-data
-    android:name="com.google.android.geo.API_KEY"
-    android:value="YOUR_API_KEY"/>
-```
-
-5. Run the app:
+### 5. Run the app
 
 ```bash
 flutter run
 ```
 
----
+For a clean build:
 
-## 👥 Team
-
-* Juan Miguel Manrique
-* Sergio Perez
-* Jorge Solorzano
-
----
-
-## 📌 Notes
-
-* The app requires an active internet connection.
-* Google Maps features depend on proper API key configuration.
-* Location services should be enabled on the device for navigation features.
+```bash
+flutter clean
+flutter pub get
+flutter run
+```
 
 ---
 
-## 📄 License
+## Recommended Testing
 
-This project is for academic purposes.
+Before presenting or distributing the app, test the following on a real device:
+
+- Login and registration with internet connection.
+- Google Sign-In with internet connection.
+- Offline behavior in login and protected actions.
+- Restaurant browsing with and without connection.
+- Favorites flow.
+- Reviews flow.
+- Meal planner generation and saved plans.
+- Exporting saved meal plans.
+- Quick Picks recommendations.
+- Recently viewed restaurants.
+- Map access with a valid API key.
+- Light and dark mode behavior.
+
+---
+
+## Team
+
+- Juan Miguel Manrique
+- Sergio Perez
+- Jorge Solorzano
+
+---
+
+## Notes
+
+FoodAndes supports offline-friendly behavior for cached and locally saved information. Some features still require an internet connection because they depend on Firebase, Google services, Google Maps, or remote synchronization.
+
+This project was developed for academic purposes.

@@ -244,7 +244,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     if (_isOffline) const OfflineProtectedNotice(
-                      message: 'Offline mode · sign in and password reset require internet',
+                      message:
+                          'Offline mode · Google sign-in, email login, registration, and password reset require internet',
                     ),
                     if (_isOffline) const SizedBox(height: 16),
                     // ── Header ──────────────────────────────────────────────
@@ -301,7 +302,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
-                        onPressed: _handleForgotPassword,
+                        onPressed: _isOffline ? null : _handleForgotPassword,
                         style: TextButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 4),
                         ),
@@ -325,7 +326,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           borderRadius: BorderRadius.circular(16),
                         ),
                       ),
-                      onPressed: _isLoading ? null : _handleLogin,
+                      onPressed: _isLoading || _isOffline ? null : _handleLogin,
                       child: _isLoading
                           ? const SizedBox(
                               width: 22,
@@ -335,9 +336,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                 color: Colors.white,
                               ),
                             )
-                          : const Text(
-                              'Login',
-                              style: TextStyle(
+                          : Text(
+                              _isOffline ? 'Login unavailable offline' : 'Login',
+                              style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -370,8 +371,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           borderRadius: BorderRadius.circular(16),
                         ),
                       ),
-                      onPressed:
-                          _isGoogleLoading ? null : _handleGoogleLogin,
+                      onPressed: _isGoogleLoading || _isOffline
+                          ? null
+                          : _handleGoogleLogin,
                       icon: _isGoogleLoading
                           ? const SizedBox(
                               width: 20,
@@ -382,9 +384,11 @@ class _LoginScreenState extends State<LoginScreen> {
                               Icons.account_circle_outlined,
                               color: AppColors.textPrimary,
                             ),
-                      label: const Text(
-                        'Continue with Google',
-                        style: TextStyle(
+                      label: Text(
+                        _isOffline
+                            ? 'Google unavailable offline'
+                            : 'Continue with Google',
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                           color: AppColors.textPrimary,
